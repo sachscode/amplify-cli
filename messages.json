@@ -1,0 +1,12 @@
+{
+      "version": "1.0.0",
+      "messages": [
+        {
+          "message": "Rene to give message",
+          "id": "COGNITO_SMS_SANDBOX_UPDATE_WARNING",
+          "conditions": {
+            "enabled": true
+          }
+        }
+      ]
+    }
