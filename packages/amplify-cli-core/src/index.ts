@@ -196,7 +196,7 @@ interface AmplifyToolkit {
     filteredResources?: { category: string; resourceName: string }[],
   ) => $TSAny;
   storeCurrentCloudBackend: () => $TSAny;
-  generateNestedCfnStack: () => $TSAny;
+  generateResourceStackDiff: () => $TSAny;
   readJsonFile: () => $TSAny;
   removeEnvFromCloud: () => $TSAny;
   removeDeploymentSecrets: (context: $TSContext, category: string, resource: string) => void;

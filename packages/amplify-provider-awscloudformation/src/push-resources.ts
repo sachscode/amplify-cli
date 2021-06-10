@@ -45,6 +45,7 @@ import { NETWORK_STACK_LOGICAL_ID } from './network/stack';
 import { preProcessCFNTemplate } from './pre-push-cfn-processor/cfn-pre-processor';
 import { AUTH_TRIGGER_STACK, AUTH_TRIGGER_TEMPLATE } from './utils/upload-auth-trigger-template';
 import { ensureValidFunctionModelDependencies } from './utils/remove-dependent-function';
+import * as cfnDiff from '@aws-cdk/cloudformation-diff';
 
 const logger = fileLogger('push-resources');
 
@@ -1054,9 +1055,36 @@ function updateIdPRolesInNestedStack(nestedStack: $TSAny, authResourceName: $TSA
 
   Object.assign(nestedStack.Resources, idpUpdateRoleCfn);
 }
-export async function generateNestedCfnStack( context ){
+
+//load the old cloud-formation stack which has been deployed to the cloud using amplify push
+async function loadOldCfnStack(){
+  const backEndDir = pathManager.getBackendDirPath();
+  const nestedStackFilepath = path.normalize(path.join(backEndDir, providerName, nestedStackFileName));
+  return JSONUtilities.readJson(nestedStackFilepath);
+}
+
+//load the new cloud-formation stack which includes the changes performed by amplify-cli
+// e.g after amplify add / update , but before amplify push
+async function loadNewCfnStack( context ){
   const projectDetails = context.amplify.getProjectDetails();
+  //generate new stack
   return formNestedStack(context, projectDetails);
+}
+
+export async function generateResourceStackDiff( context ){
+  const projectDetails = context.amplify.getProjectDetails();
+  //generate new stack
+  const newStack =  await loadNewCfnStack( context );
+
+  //load old stack
+  const oldStack = await loadOldCfnStack( );
+
+  console.log("SACPCDIFF:11: newStack: ", JSON.stringify(newStack, null, 2));
+  console.log("SACPCDIFF:22: oldStack: ", JSON.stringify(oldStack, null, 2));
+
+  const diff = cfnDiff.diffTemplate(oldStack, newStack);
+  console.log("SACPCDIFF:3: newstack: ", diff);
+  return diff;
 }
 
 export async function generateAndUploadRootStack(context: $TSContext, destinationPath: string, destinationS3Key: string) {

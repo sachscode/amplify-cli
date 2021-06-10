@@ -7,7 +7,7 @@ import { getEnvInfo } from './get-env-info';
 import { EnvironmentDoesNotExistError, exitOnNextTick, stateManager, $TSAny, $TSContext } from 'amplify-cli-core';
 
 
-export async function generateNestedCfnStack(
+export async function generateResourceStackDiff(
   context: $TSContext,
   category?: string,
   resourceName?: string,
@@ -21,7 +21,7 @@ export async function generateNestedCfnStack(
   for (const provider of providers) {
     const providerModule = require(providerPlugins[provider]);
     const resourceDefiniton = await context.amplify.getResourceStatus(category, resourceName, provider, filteredResources);
-    providerPromises.push(providerModule.generateNestedCfnStack(context, resourceDefiniton));
+    providerPromises.push(providerModule.generateResourceStackDiff(context, resourceDefiniton));
   }
   await Promise.all(providerPromises);
 }

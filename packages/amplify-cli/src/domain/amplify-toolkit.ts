@@ -229,9 +229,9 @@ export class AmplifyToolkit {
       this._storeCurrentCloudBackend || require(path.join(this._amplifyHelpersDirPath, 'push-resources')).storeCurrentCloudBackend;
     return this._storeCurrentCloudBackend;
   }
-  get generateNestedCfnStack(): any {
+  get generateResourceStackDiff(): any {
     this._generateNestedCfnStack =
-      this._generateNestedCfnStack || require(path.join(this._amplifyHelpersDirPath, 'push-resources')).generateNestedCfnStack;
+      this._generateNestedCfnStack || require(path.join(this._amplifyHelpersDirPath, 'push-resources')).generateResourceStackDiff;
     return this._generateNestedCfnStack;
   }
 
