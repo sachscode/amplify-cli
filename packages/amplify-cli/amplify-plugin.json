@@ -6,6 +6,7 @@
     "configure",
     "console",
     "delete",
+    "diff",
     "env",
     "help",
     "init",

@@ -47,6 +47,10 @@ function onInitSuccessful(context) {
   return initializer.onInitSuccessful(context);
 }
 
+function generateNestedCfnStack( context ){
+  return resourcePusher.generateNestedCfnStack(context);
+}
+
 function pushResources(context, resourceList) {
   return resourcePusher.run(context, resourceList);
 }
@@ -112,6 +116,7 @@ module.exports = {
   constants,
   pushResources,
   storeCurrentCloudBackend,
+  generateNestedCfnStack,
   providerUtils,
   setupNewUser,
   getConfiguredAWSClient,

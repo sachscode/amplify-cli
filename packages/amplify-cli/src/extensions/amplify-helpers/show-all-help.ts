@@ -1,6 +1,7 @@
 import { showHelp } from './show-help';
 import { listCategories } from './list-categories';
 import { isPackaged } from 'amplify-cli-core';
+import { ResourcesVpcConfig } from 'cloudform-types/types/eks/cluster';
 
 export function showAllHelp(context) {
   context.print.info('');
@@ -16,6 +17,11 @@ export function showAllHelp(context) {
       name: 'configure',
       description:
         'Configures the attributes of your project for amplify-cli, such as switching front-end framework and adding/removing cloud-provider plugins.',
+    },
+    {
+      name: 'diff',
+      description:
+        `Compares the resources deployed to the cloud with the resources defined in the local dev environment.`
     },
     {
       name: 'push',

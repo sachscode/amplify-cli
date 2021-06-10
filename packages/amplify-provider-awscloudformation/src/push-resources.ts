@@ -1054,6 +1054,10 @@ function updateIdPRolesInNestedStack(nestedStack: $TSAny, authResourceName: $TSA
 
   Object.assign(nestedStack.Resources, idpUpdateRoleCfn);
 }
+export async function generateNestedCfnStack( context ){
+  const projectDetails = context.amplify.getProjectDetails();
+  return formNestedStack(context, projectDetails);
+}
 
 export async function generateAndUploadRootStack(context: $TSContext, destinationPath: string, destinationS3Key: string) {
   const projectDetails = context.amplify.getProjectDetails();
