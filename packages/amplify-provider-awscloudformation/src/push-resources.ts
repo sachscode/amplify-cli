@@ -1073,12 +1073,13 @@ async function loadNewCfnStack( context ){
 
 export async function generateResourceStackDiff( context ){
   const projectDetails = context.amplify.getProjectDetails();
+  const cloudformationMeta = context.amplify.getProjectMeta().providers.awscloudformation;
   //generate new stack
-  const newStack =  await loadNewCfnStack( context );
+  const newStack = await loadNewCfnStack( context );
 
   //load old stack
   const oldStack = await loadOldCfnStack( );
-
+  console.log("SACPCDIFF:00: Stack: ", JSON.stringify( cloudformationMeta, null, 2) );
   console.log("SACPCDIFF:11: newStack: ", JSON.stringify(newStack, null, 2));
   console.log("SACPCDIFF:22: oldStack: ", JSON.stringify(oldStack, null, 2));
 

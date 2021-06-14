@@ -8,9 +8,32 @@ import { getEnvInfo } from './get-env-info';
 import { CLOUD_INITIALIZED, CLOUD_NOT_INITIALIZED, getCloudInitStatus } from './get-cloud-init-status';
 import { ServiceName as FunctionServiceName, hashLayerResource } from 'amplify-category-function';
 import { removeGetUserEndpoints } from '../amplify-helpers/remove-pinpoint-policy';
-import { pathManager, stateManager, $TSMeta, $TSAny, Tag, NotInitializedError } from 'amplify-cli-core';
+import { pathManager, stateManager, $TSMeta, $TSAny, Tag, NotInitializedError, JSONUtilities } from 'amplify-cli-core';
+import * as yaml from 'js-yaml';
+import * as cfnDiff from '@aws-cdk/cloudformation-diff';
+import * as cxschema from '@aws-cdk/cloud-assembly-schema';
+import * as yaml_cfn from './yaml-cfn';
+import * as cxapi from '@aws-cdk/cx-api';
 
-async function isBackendDirModifiedSinceLastPush(resourceName, category, lastPushTimeStamp, isLambdaLayer = false) {
+
+
+const CategoryTypes = {
+  PROVIDERS : "providers",
+  API : "api",
+  AUTH : "auth",
+  STORAGE : "storage",
+  FUNCTION : "function",
+  ANALYTICS : "analytics"
+}
+
+const CategoryProviders = {
+  CLOUDFORMATION : "cloudformation",
+  TERRAFORM : "terraform"
+}
+
+
+async function isBackendDirModifiedSinceLastPush(resourceName: string, category: string, lastPushTimeStamp: any, isLambdaLayer = false) {
+
   // Pushing the resource for the first time hence no lastPushTimeStamp
   if (!lastPushTimeStamp) {
     return false;
@@ -52,7 +75,7 @@ function filterResources(resources, filteredResources) {
     return resources;
   }
 
-  resources = resources.filter(resource => {
+  resources = resources.filter( resource => {
     let common = false;
     for (let i = 0; i < filteredResources.length; ++i) {
       if (filteredResources[i].category === resource.category && filteredResources[i].resourceName === resource.resourceName) {
@@ -178,9 +201,122 @@ function getResourcesToBeDeleted(amplifyMeta, currentAmplifyMeta, category, reso
   return resources;
 }
 
-async function getResourcesToBeUpdated(amplifyMeta, currentAmplifyMeta, category, resourceName, filteredResources) {
-  let resources: any[] = [];
+//store source and destination folders for cloud resources of the resource.
+interface IResourceDiffMeta {
+  category: String,
+  resource: String,
+  localBackendDir : String,
+  cloudBackendDir : String,
+}
 
+function _getResourceProviderFileName(  resourceName : string, providerType : string ){
+  //resourceName is the name of an instantiated category type e.g name of your s3 bucket
+  //providerType is the name of the cloud infrastructure provider e.g cloudformation/terraform
+  return `${resourceName}-${providerType}-template`
+}
+
+export function deserializeStructure(str: string): any {
+  try {
+    return yaml_cfn.deserialize(str);
+  } catch (e) {
+    // This shouldn't really ever happen I think, but it's the code we had so I'm leaving it.
+    return JSON.parse(str);
+  }
+}
+
+export async function loadStructuredFile(fileName: string) {
+  const contents = await fs.readFile(fileName, { encoding: 'utf-8' });
+  return deserializeStructure(contents);
+}
+
+async function getObjectFromProviderFile( resourcePath, resourceName, providerType ) {
+  //Read the cloudformation/terraform file
+  const resourceProviderFilePath = `${resourcePath}/${_getResourceProviderFileName(resourceName, providerType)}`;
+  try {
+    //Load yaml or json files
+    let providerObject = {};
+    if ( fs.existsSync(`${resourceProviderFilePath}.json`) ){
+      providerObject = await loadStructuredFile(`${resourceProviderFilePath}.json`);
+    } else if ( fs.existsSync(`${resourceProviderFilePath}.yaml`) ){
+      providerObject = await loadStructuredFile(`${resourceProviderFilePath}.yaml`);
+    }
+    return providerObject;
+  } catch (e) {
+    //No resource file found
+    console.log(e);
+    throw e;
+  }
+}
+
+function getLocalBackendDirPath(categoryName, resourceName){
+   return path.normalize(path.join(pathManager.getBackendDirPath(), categoryName, resourceName))
+}
+
+function getCloudBackendDirPath(categoryName, resourceName){
+  return path.normalize(path.join(pathManager.getCurrentCloudBackendDirPath(), categoryName, resourceName))
+}
+
+// from cdk
+
+function buildLogicalToPathMap(stack) {
+  const map: { [id: string]: string } = {};
+  for (const md of stack.findMetadataByType(cxschema.ArtifactMetadataEntryType.LOGICAL_ID)) {
+    map[md.data as string] = md.path;
+  }
+  return map;
+}
+
+function printStackDiff(
+  oldTemplate: any,
+  newTemplate: any,
+  strict: boolean,
+  stream?: cfnDiff.FormatStream): number {
+
+  const diff = cfnDiff.diffTemplate(oldTemplate, newTemplate );
+
+  // filter out 'AWS::CDK::Metadata' resources from the template
+  if (diff.resources && !strict) {
+    diff.resources = diff.resources.filter(change => {
+      if (!change) { return true; }
+      if (change.newResourceType === 'AWS::CDK::Metadata') { return false; }
+      if (change.oldResourceType === 'AWS::CDK::Metadata') { return false; }
+      return true;
+    });
+  }
+
+  if (!diff.isEmpty) {
+    cfnDiff.formatDifferences(stream || process.stderr, diff);
+  } else {
+    print.info( `${chalk.green('There were no differences')}` );
+  }
+
+  return diff.differenceCount;
+}
+
+async function collateResourceDiffs( resources ){
+  let count = 0;
+  resources.map( async (resource) => {
+          const localBackendDir = getLocalBackendDirPath(resource.category, resource.resourceName);
+          const cloudBackendDir = getCloudBackendDirPath(resource.category, resource.resourceName);
+          //print cdk diff
+          const localUpdatedTemplate:any = await getObjectFromProviderFile( localBackendDir,
+                                                                            resource.resourceName,
+                                                                            CategoryProviders.CLOUDFORMATION);
+          const cloudTemplate:any = await getObjectFromProviderFile( cloudBackendDir,
+                                                                     resource.resourceName,
+                                                                     CategoryProviders.CLOUDFORMATION);
+
+          printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
+
+    } );
+}
+
+async function getResourcesToBeUpdated(amplifyMeta,
+                                       currentAmplifyMeta,
+                                       category,
+                                       resourceName,
+                                       filteredResources) {
+  let resources: any[] = [];
   await asyncForEach(Object.keys(amplifyMeta), async categoryName => {
     const categoryItem = amplifyMeta[categoryName];
     await asyncForEach(Object.keys(categoryItem), async resource => {
@@ -242,6 +378,7 @@ async function getResourcesToBeUpdated(amplifyMeta, currentAmplifyMeta, category
 
   resources = filterResources(resources, filteredResources);
 
+
   if (category !== undefined && resourceName !== undefined) {
     resources = resources.filter(resource => resource.category === category && resource.resourceName === resourceName);
   }
@@ -249,7 +386,6 @@ async function getResourcesToBeUpdated(amplifyMeta, currentAmplifyMeta, category
   if (category !== undefined && !resourceName) {
     resources = resources.filter(resource => resource.category === category);
   }
-
   return resources;
 }
 
@@ -365,7 +501,7 @@ export async function getResourceStatus(category?, resourceName?, providerName?,
 
   let allResources: any = getAllResources(amplifyMeta, category, resourceName, filteredResources);
 
-  resourcesToBeCreated = resourcesToBeCreated.filter(resource => resource.category !== 'provider');
+  resourcesToBeCreated = resourcesToBeCreated.filter( resource => resource.category !== 'provider');
 
   if (providerName) {
     resourcesToBeCreated = resourcesToBeCreated.filter(resource => resource.providerPlugin === providerName);
@@ -374,6 +510,7 @@ export async function getResourceStatus(category?, resourceName?, providerName?,
     resourcesToBeDeleted = resourcesToBeDeleted.filter(resource => resource.providerPlugin === providerName);
     allResources = allResources.filter(resource => resource.providerPlugin === providerName);
   }
+
   // if not equal there is a tag update
   const tagsUpdated = !_.isEqual(stateManager.getProjectTags(), stateManager.getCurrentProjectTags());
 
@@ -485,6 +622,14 @@ export async function showResourceTable(category, resourceName, filteredResource
   const { table } = print;
 
   table(tableOptions, { format: 'markdown' });
+
+
+  collateResourceDiffs( resourcesToBeCreated );
+  collateResourceDiffs( resourcesToBeUpdated );
+  collateResourceDiffs( resourcesToBeDeleted );
+
+  console.log("SACPCDEBUG Table Options", tableOptions);
+
 
   if (tagsUpdated) {
     print.info('\nTag Changes Detected');
