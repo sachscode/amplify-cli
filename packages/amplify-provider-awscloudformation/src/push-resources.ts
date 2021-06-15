@@ -1079,10 +1079,6 @@ export async function generateResourceStackDiff( context ){
 
   //load old stack
   const oldStack = await loadOldCfnStack( );
-  console.log("SACPCDIFF:00: Stack: ", JSON.stringify( cloudformationMeta, null, 2) );
-  console.log("SACPCDIFF:11: newStack: ", JSON.stringify(newStack, null, 2));
-  console.log("SACPCDIFF:22: oldStack: ", JSON.stringify(oldStack, null, 2));
-
   const diff = cfnDiff.diffTemplate(oldStack, newStack);
   console.log("SACPCDIFF:3: newstack: ", diff);
   return diff;

@@ -32,6 +32,8 @@ const CategoryProviders = {
 }
 
 
+
+
 async function isBackendDirModifiedSinceLastPush(resourceName: string, category: string, lastPushTimeStamp: any, isLambdaLayer = false) {
 
   // Pushing the resource for the first time hence no lastPushTimeStamp
@@ -248,6 +250,31 @@ async function getObjectFromProviderFile( resourcePath, resourceName, providerTy
   }
 }
 
+function checkExist( filePath ){
+  if ( fs.existsSync(`${filePath}.json`) || ( fs.existsSync(`${filePath}.yaml`) ) ) {
+    return true
+  } else {
+    return false
+  }
+}
+
+async function loadCloudFormationTemplate( filePath ){
+  try {
+    //Load yaml or json files
+    let providerObject = {};
+    if ( fs.existsSync(`${filePath}.json`) ){
+      providerObject = await loadStructuredFile(`${filePath}.json`);
+    } else if ( fs.existsSync(`${filePath}.yaml`) ){
+      providerObject = await loadStructuredFile(`${filePath}.yaml`);
+    }
+    return providerObject;
+  } catch (e) {
+    //No resource file found
+    console.log(e);
+    throw e;
+  }
+}
+
 function getLocalBackendDirPath(categoryName, resourceName){
    return path.normalize(path.join(pathManager.getBackendDirPath(), categoryName, resourceName))
 }
@@ -282,24 +309,48 @@ function printStackDiff(
 
 const vaporStyle = chalk.hex('#8be8fd').bgHex('#282a36');
 
+async function printAPIResourceDiff(header, provider, resource, localBackendDir, cloudBackendDir ){
+
+     const cfnTemplateGlobPattern = '*template*.+(yaml|yml|json)';
+     //API artifacts are stored in build folder for cloud resources
+     const transformedAPIFile = path.normalize(path.join(cloudBackendDir, "build/cloudformation-template"));
+     const localTransformedAPIFile =  path.normalize(path.join(localBackendDir, "build/cloudformation-template"));
+
+     const localAPIFile = (checkExist(localTransformedAPIFile))?localTransformedAPIFile:`${localBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`;
+     const cloudAPIFile = (checkExist(transformedAPIFile))?transformedAPIFile :  `${cloudBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`
+     //console.log("SACPCDEBUG: API diff : localAPIFile: ", localAPIFile, "cloudBackendFile:", cloudAPIFile);
+     //diff all cloudformation
+     const cloudTemplate:any = await loadCloudFormationTemplate( cloudAPIFile );
+     const localUpdatedTemplate:any = await loadCloudFormationTemplate( localAPIFile ); //exists if deployed once.
+
+     print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(resource.category)}/${resource.resourceName} : ${header}`);
+     const diffCount = printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
+     if ( diffCount === 0 ){
+        console.log("No changes  ");
+     }
+}
 async function collateResourceDiffs( resources , header ){
   let count = 0;
   const provider = CategoryProviders.CLOUDFORMATION;
   resources.map( async (resource) => {
           const localBackendDir = getLocalBackendDirPath(resource.category, resource.resourceName);
           const cloudBackendDir = getCloudBackendDirPath(resource.category, resource.resourceName);
-          //print cdk diff
-          const localUpdatedTemplate:any = await getObjectFromProviderFile( localBackendDir,
-                                                                            resource.resourceName,
-                                                                            provider);
-          const cloudTemplate:any = await getObjectFromProviderFile( cloudBackendDir,
-                                                                     resource.resourceName,
-                                                                     provider);
-          print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(resource.category)}/${resource.resourceName} : ${header}`);
-          const diffCount = printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
-          if ( diffCount === 0 ){
-            console.log("No changes  ")
-          }
+          if ( resource.category.toLowerCase() === CategoryTypes.API ){
+             await printAPIResourceDiff(header, provider, resource, localBackendDir, cloudBackendDir );
+          } else {
+            //print cdk diff
+            const localUpdatedTemplate:any = await getObjectFromProviderFile( localBackendDir,
+                                                                              resource.resourceName,
+                                                                              provider);
+            const cloudTemplate:any = await getObjectFromProviderFile( cloudBackendDir,
+                                                                      resource.resourceName,
+                                                                      provider);
+            print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(resource.category)}/${resource.resourceName} : ${header}`);
+            const diffCount = printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
+            if ( diffCount === 0 ){
+              console.log("No changes  ")
+            }
+         }
     } );
 }
 
