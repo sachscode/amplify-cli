@@ -127,5 +127,7 @@ export const print = {
   error,
   success,
   table,
-  debug,
+  debug
 };
+
+

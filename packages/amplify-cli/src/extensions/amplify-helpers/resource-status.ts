@@ -256,16 +256,6 @@ function getCloudBackendDirPath(categoryName, resourceName){
   return path.normalize(path.join(pathManager.getCurrentCloudBackendDirPath(), categoryName, resourceName))
 }
 
-// from cdk
-
-function buildLogicalToPathMap(stack) {
-  const map: { [id: string]: string } = {};
-  for (const md of stack.findMetadataByType(cxschema.ArtifactMetadataEntryType.LOGICAL_ID)) {
-    map[md.data as string] = md.path;
-  }
-  return map;
-}
-
 function printStackDiff(
   oldTemplate: any,
   newTemplate: any,
@@ -286,28 +276,30 @@ function printStackDiff(
 
   if (!diff.isEmpty) {
     cfnDiff.formatDifferences(stream || process.stderr, diff);
-  } else {
-    print.info( `${chalk.green('There were no differences')}` );
   }
-
   return diff.differenceCount;
 }
 
-async function collateResourceDiffs( resources ){
+const vaporStyle = chalk.hex('#8be8fd').bgHex('#282a36');
+
+async function collateResourceDiffs( resources , header ){
   let count = 0;
+  const provider = CategoryProviders.CLOUDFORMATION;
   resources.map( async (resource) => {
           const localBackendDir = getLocalBackendDirPath(resource.category, resource.resourceName);
           const cloudBackendDir = getCloudBackendDirPath(resource.category, resource.resourceName);
           //print cdk diff
           const localUpdatedTemplate:any = await getObjectFromProviderFile( localBackendDir,
                                                                             resource.resourceName,
-                                                                            CategoryProviders.CLOUDFORMATION);
+                                                                            provider);
           const cloudTemplate:any = await getObjectFromProviderFile( cloudBackendDir,
                                                                      resource.resourceName,
-                                                                     CategoryProviders.CLOUDFORMATION);
-
-          printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
-
+                                                                     provider);
+          print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(resource.category)}/${resource.resourceName} : ${header}`);
+          const diffCount = printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
+          if ( diffCount === 0 ){
+            console.log("No changes  ")
+          }
     } );
 }
 
@@ -621,15 +613,15 @@ export async function showResourceTable(category, resourceName, filteredResource
 
   const { table } = print;
 
+  print.info(`\n ${chalk.underline(chalk.bold(vaporStyle("Resource Update Summary...")))}\n`)
   table(tableOptions, { format: 'markdown' });
-
-
-  collateResourceDiffs( resourcesToBeCreated );
-  collateResourceDiffs( resourcesToBeUpdated );
-  collateResourceDiffs( resourcesToBeDeleted );
-
-  console.log("SACPCDEBUG Table Options", tableOptions);
-
+  print.info(`\n ${chalk.underline(chalk.bold(vaporStyle("Resource Update Details...")))}`)
+  await collateResourceDiffs( resourcesToBeCreated ,`${chalk.green('Create')}`);
+  print.info("\n");
+  await collateResourceDiffs( resourcesToBeUpdated , `${chalk.yellow('Update')}`);
+  print.info("\n");
+  await collateResourceDiffs( resourcesToBeDeleted , `${chalk.red('Delete')}` );
+  print.info("\n");
 
   if (tagsUpdated) {
     print.info('\nTag Changes Detected');
