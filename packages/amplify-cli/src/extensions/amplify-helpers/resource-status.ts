@@ -221,7 +221,6 @@ export function deserializeStructure(str: string): any {
   try {
     return yaml_cfn.deserialize(str);
   } catch (e) {
-    // This shouldn't really ever happen I think, but it's the code we had so I'm leaving it.
     return JSON.parse(str);
   }
 }
@@ -231,49 +230,42 @@ export async function loadStructuredFile(fileName: string) {
   return deserializeStructure(contents);
 }
 
+async function loadCloudFormationTemplate( filePath ){
+  try {
+    //Load yaml or yml or json files
+    let providerObject = {};
+    const inputTypes = [ 'json', 'yaml', 'yml']
+    for( let i = 0 ; i < inputTypes.length ; i++ ){
+      if ( fs.existsSync(`${filePath}.${inputTypes[i]}`) ){
+        providerObject = await loadStructuredFile(`${filePath}.${inputTypes[i]}`);
+        return providerObject;
+      }
+    }
+    return providerObject;
+  } catch (e) {
+    //No resource file found
+    console.log(e);
+    throw e;
+  }
+}
+
 async function getObjectFromProviderFile( resourcePath, resourceName, providerType ) {
   //Read the cloudformation/terraform file
   const resourceProviderFilePath = `${resourcePath}/${_getResourceProviderFileName(resourceName, providerType)}`;
-  try {
-    //Load yaml or json files
-    let providerObject = {};
-    if ( fs.existsSync(`${resourceProviderFilePath}.json`) ){
-      providerObject = await loadStructuredFile(`${resourceProviderFilePath}.json`);
-    } else if ( fs.existsSync(`${resourceProviderFilePath}.yaml`) ){
-      providerObject = await loadStructuredFile(`${resourceProviderFilePath}.yaml`);
-    }
-    return providerObject;
-  } catch (e) {
-    //No resource file found
-    console.log(e);
-    throw e;
-  }
+  //console.log("SACPCDEBUG:COLLATE: ", resourceProviderFilePath);
+  return await loadCloudFormationTemplate( resourceProviderFilePath ) //loads json, yaml or yml files
 }
 
 function checkExist( filePath ){
-  if ( fs.existsSync(`${filePath}.json`) || ( fs.existsSync(`${filePath}.yaml`) ) ) {
-    return true
-  } else {
-    return false
+  const inputTypes = [ 'json', 'yaml', 'yml']
+  for( let i = 0 ; i < inputTypes.length ; i++ ){
+    if ( fs.existsSync(`${filePath}.${inputTypes[i]}`) ){
+      return true;
+    }
   }
+  return false;
 }
 
-async function loadCloudFormationTemplate( filePath ){
-  try {
-    //Load yaml or json files
-    let providerObject = {};
-    if ( fs.existsSync(`${filePath}.json`) ){
-      providerObject = await loadStructuredFile(`${filePath}.json`);
-    } else if ( fs.existsSync(`${filePath}.yaml`) ){
-      providerObject = await loadStructuredFile(`${filePath}.yaml`);
-    }
-    return providerObject;
-  } catch (e) {
-    //No resource file found
-    console.log(e);
-    throw e;
-  }
-}
 
 function getLocalBackendDirPath(categoryName, resourceName){
    return path.normalize(path.join(pathManager.getBackendDirPath(), categoryName, resourceName))
@@ -313,12 +305,13 @@ async function printAPIResourceDiff(header, provider, resource, localBackendDir,
 
      const cfnTemplateGlobPattern = '*template*.+(yaml|yml|json)';
      //API artifacts are stored in build folder for cloud resources
-     const transformedAPIFile = path.normalize(path.join(cloudBackendDir, "build/cloudformation-template"));
-     const localTransformedAPIFile =  path.normalize(path.join(localBackendDir, "build/cloudformation-template"));
+     const cloudBuildTemplateFile = path.normalize(path.join(cloudBackendDir, "build/cloudformation-template"));
+     const localBuildTemplateFile =  path.normalize(path.join(localBackendDir, "build/cloudformation-template"));
+     //SACPCTBD!!: This should not rely on the presence or absence of a file, it should be based on the context state.
+     //e.g user-added, amplify-built-not-deployed, amplify-deployed-failed, amplify-deployed-success
+     const localAPIFile = (checkExist(localBuildTemplateFile))?localBuildTemplateFile:`${localBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`;
+     const cloudAPIFile = (checkExist(cloudBuildTemplateFile))?cloudBuildTemplateFile :  `${cloudBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`
 
-     const localAPIFile = (checkExist(localTransformedAPIFile))?localTransformedAPIFile:`${localBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`;
-     const cloudAPIFile = (checkExist(transformedAPIFile))?transformedAPIFile :  `${cloudBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`
-     //console.log("SACPCDEBUG: API diff : localAPIFile: ", localAPIFile, "cloudBackendFile:", cloudAPIFile);
      //diff all cloudformation
      const cloudTemplate:any = await loadCloudFormationTemplate( cloudAPIFile );
      const localUpdatedTemplate:any = await loadCloudFormationTemplate( localAPIFile ); //exists if deployed once.
@@ -345,6 +338,8 @@ async function collateResourceDiffs( resources , header ){
             const cloudTemplate:any = await getObjectFromProviderFile( cloudBackendDir,
                                                                       resource.resourceName,
                                                                       provider);
+            //console.log("SACPCDEBUG: Diff : localTemplateFile: ", JSON.stringify(localUpdatedTemplate, null, 2),
+            //                                  "cloudBackendTemplate:", JSON.stringify(cloudTemplate, null, 2) );
             print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(resource.category)}/${resource.resourceName} : ${header}`);
             const diffCount = printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
             if ( diffCount === 0 ){
@@ -667,11 +662,11 @@ export async function showResourceTable(category, resourceName, filteredResource
   print.info(`\n ${chalk.underline(chalk.bold(vaporStyle("Resource Update Summary...")))}\n`)
   table(tableOptions, { format: 'markdown' });
   print.info(`\n ${chalk.underline(chalk.bold(vaporStyle("Resource Update Details...")))}`)
-  await collateResourceDiffs( resourcesToBeCreated ,`${chalk.green('Create')}`);
-  print.info("\n");
   await collateResourceDiffs( resourcesToBeUpdated , `${chalk.yellow('Update')}`);
   print.info("\n");
   await collateResourceDiffs( resourcesToBeDeleted , `${chalk.red('Delete')}` );
+  print.info("\n");
+  await collateResourceDiffs( resourcesToBeCreated ,`${chalk.green('Create')}`);
   print.info("\n");
 
   if (tagsUpdated) {
