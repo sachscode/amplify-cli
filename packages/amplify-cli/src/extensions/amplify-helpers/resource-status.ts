@@ -67,10 +67,26 @@ function filterResources(resources, filteredResources) {
 
   return resources;
 }
+class AmplifyMeta {
+  amplifyMeta : $TSMeta;
+
+  constructor(amplifyMeta){
+    this.amplifyMeta = amplifyMeta;
+  }
+
+  getResourcesByCategoryName( categoryName ){
+    let resources :any[] = Object.keys(this.amplifyMeta[categoryName]).map(resource => (
+                            {
+                              ...this.amplifyMeta[categoryName][resource],
+                              resourceName : resource,
+                              category : categoryName
+                            }));
+    return resources;
+  }
+}
 
 function getAllResources(amplifyMeta, category, resourceName, filteredResources) {
   let resources: any[] = [];
-
   Object.keys(amplifyMeta).forEach(categoryName => {
     const categoryItem = amplifyMeta[categoryName];
     Object.keys(categoryItem).forEach(resource => {
@@ -426,23 +442,34 @@ export async function showResourceTable(category, resourceName, filteredResource
   const importOperationLabel = 'Import';
   const unlinkOperationLabel = 'Unlink';
   const noOperationLabel = 'No Change';
-  const tableOptions = [['Category', 'Resource name', 'Operation', 'Provider plugin']];
+  const tableHeader = ['Category', 'Resource name', 'Operation', 'Summary'];
+  const tableOptions = [tableHeader];
 
   for (let i = 0; i < resourcesToBeCreated.length; ++i) {
+    const resourceDiff = new resourceStatus.ResourceDiff( resourcesToBeCreated[i].category,
+                                                          resourcesToBeCreated[i].resourceName,
+                                                          resourcesToBeCreated[i].providerPlugin );
+    const resourceSummary =  await resourceDiff.getDiffSummary();
     tableOptions.push([
       capitalize(resourcesToBeCreated[i].category),
       resourcesToBeCreated[i].resourceName,
       createOperationLabel,
-      resourcesToBeCreated[i].providerPlugin,
+      //resourcesToBeCreated[i].providerPlugin,
+      resourceSummary
     ]);
   }
 
   for (let i = 0; i < resourcesToBeUpdated.length; ++i) {
+    const resourceDiff = new resourceStatus.ResourceDiff( resourcesToBeUpdated[i].category,
+                                                          resourcesToBeUpdated[i].resourceName,
+                                                          resourcesToBeUpdated[i].providerPlugin );
+
     tableOptions.push([
       capitalize(resourcesToBeUpdated[i].category),
       resourcesToBeUpdated[i].resourceName,
       updateOperationLabel,
-      resourcesToBeUpdated[i].providerPlugin,
+      //resourcesToBeUpdated[i].providerPlugin,
+      await resourceDiff.getDiffSummary()
     ]);
   }
 
@@ -466,16 +493,21 @@ export async function showResourceTable(category, resourceName, filteredResource
       capitalize(resourcesToBeSynced[i].category),
       resourcesToBeSynced[i].resourceName,
       operation /*syncOperationLabel*/,
-      resourcesToBeSynced[i].providerPlugin,
+      //resourcesToBeSynced[i].providerPlugin,
+      "   -   "
     ]);
   }
 
   for (let i = 0; i < resourcesToBeDeleted.length; ++i) {
+    const resourceDiff = new resourceStatus.ResourceDiff( resourcesToBeDeleted[i].category,
+                                                          resourcesToBeDeleted[i].resourceName,
+                                                          resourcesToBeDeleted[i].providerPlugin );
     tableOptions.push([
       capitalize(resourcesToBeDeleted[i].category),
       resourcesToBeDeleted[i].resourceName,
       deleteOperationLabel,
-      resourcesToBeDeleted[i].providerPlugin,
+      //resourcesToBeDeleted[i].providerPlugin,
+      await resourceDiff.getDiffSummary()
     ]);
   }
 
@@ -484,19 +516,28 @@ export async function showResourceTable(category, resourceName, filteredResource
       capitalize(noChangeResources[i].category),
       noChangeResources[i].resourceName,
       noOperationLabel,
-      noChangeResources[i].providerPlugin,
+      //noChangeResources[i].providerPlugin,
+      "   -   "
     ]);
   }
 
   const { table } = print;
 
-  table(tableOptions, { format: 'markdown' });
-  await resourceStatus.CollateResourceDiffs( resourcesToBeUpdated , `${chalk.yellow('Update')}`);
-  print.info("\n");
-  await resourceStatus.CollateResourceDiffs( resourcesToBeDeleted , `${chalk.red('Delete')}` );
-  print.info("\n");
-  await resourceStatus.CollateResourceDiffs( resourcesToBeCreated ,`${chalk.green('Create')}`);
-  print.info("\n");
+  //table(tableOptions, { format: 'markdown' });
+  table( tableOptions , { format: 'lean' });
+
+
+  //TBD! if category is provided, we assume "detailed view".
+  //This should be moved to an explicit user supplied flag (Detail View, Summary View).
+  if ( category !== undefined ) {
+    await resourceStatus.CollateResourceDiffs( resourcesToBeUpdated , resourceStatus.stackMutationType.UPDATE);
+    print.info("\n");
+    await resourceStatus.CollateResourceDiffs( resourcesToBeDeleted , resourceStatus.stackMutationType.DELETE );
+    print.info("\n");
+    await resourceStatus.CollateResourceDiffs( resourcesToBeCreated , resourceStatus.stackMutationType.CREATE );
+    print.info("\n");
+  }
+
 
   if (tagsUpdated) {
     print.info('\nTag Changes Detected');

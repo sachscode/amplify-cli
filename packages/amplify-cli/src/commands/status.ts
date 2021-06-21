@@ -1,5 +1,14 @@
+function normalizeCategory( category: string | null | undefined ){
+     if( category ){
+       return category.toLowerCase();
+     } else {
+       return undefined;
+     }
+}
 export const run = async context => {
-  await context.amplify.showResourceTable();
+  const category = normalizeCategory( context.input.options?.category );
+  const resource = context.input.options?.resource;
+  await context.amplify.showResourceTable(category, resource);
   await context.amplify.showHelpfulProviderLinks(context);
   await showAmplifyConsoleHostingStatus(context);
 };

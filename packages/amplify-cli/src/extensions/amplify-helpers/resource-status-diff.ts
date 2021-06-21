@@ -21,146 +21,314 @@ const CategoryProviders = {
     CLOUDFORMATION : "cloudformation",
 }
 
+interface StackMutationInfo {
+  label : String;
+  consoleStyle : (string)=>string ;
+  icon : String;
+}
+interface StackMutationType {
+  CREATE : StackMutationInfo,
+  UPDATE : StackMutationInfo,
+  DELETE : StackMutationInfo,
+  IMPORT : StackMutationInfo,
+  UNLINK : StackMutationInfo,
+  NOCHANGE : StackMutationInfo,
+}
+export const stackMutationType :  StackMutationType = {
+    CREATE : {
+      label : "Create",
+      consoleStyle : chalk.green.bold,
+      icon : "[+]"
+    },
+    UPDATE : {
+      label : "Update",
+      consoleStyle : chalk.yellow.bold,
+      icon : "[~]"
+    },
+
+    DELETE : {
+      label: "Delete",
+      consoleStyle : chalk.red.bold,
+      icon : "[-]"
+    },
+
+    IMPORT : {
+      label: "Import",
+      consoleStyle : chalk.blue.bold,
+      icon : `[\u21E9]`
+    },
+
+    UNLINK : {
+      label : "Unlink",
+      consoleStyle : chalk.red.bold,
+      icon : `[\u2BFB]`
+    },
+    NOCHANGE : {
+      label : "No Change",
+      consoleStyle : chalk.grey,
+      icon : `[ ]`
+    }
+
+}
+
+//TBD: move this to a class
+//Maps File extension to deserializer functions
+const InputFileExtensionDeserializers = {
+    json : JSON.parse,
+    yaml : yaml_cfn.deserialize,
+    yml  : yaml_cfn.deserialize
+}
+
 function capitalize(str) {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-  }
+}
+interface ResourcePaths {
+    cloudBuildTemplateFile : string; //cloud file path after transformation
+    localBuildTemplateFile : string; //file path
+    cloudTemplateFile : string;
+    localTemplateFile : string;
+    localPreBuildTemplateFile : string;
+    cloudPreBuildTemplateFile : string;
 
-function _getResourceProviderFileName(  resourceName : string, providerType : string ){
-    //resourceName is the name of an instantiated category type e.g name of your s3 bucket
-    //providerType is the name of the cloud infrastructure provider e.g cloudformation/terraform
-    return `${resourceName}-${providerType}-template`
-  }
+}
 
-  function deserializeStructure(str: string): any {
-    try {
-      return yaml_cfn.deserialize(str);
-    } catch (e) {
-      return JSON.parse(str);
-    }
-  }
+export class ResourceDiff {
+    resourceName: string;
+    category : string;
+    provider : string;
+    resourceFiles : ResourcePaths;
+    localBackendDir : string;
+    cloudBackendDir : string;
+    localTemplate : {
+                        [key: string]: any;
+                    };
+    cloudTemplate : {
+                        [key: string]: any;
+                    };
 
-  async function loadStructuredFile(fileName: string) {
-    const contents = await fs.readFile(fileName, { encoding: 'utf-8' });
-    return deserializeStructure(contents);
-  }
-
-  async function loadCloudFormationTemplate( filePath ){
-    try {
-      //Load yaml or yml or json files
-      let providerObject = {};
-      const inputTypes = [ 'json', 'yaml', 'yml']
-      for( let i = 0 ; i < inputTypes.length ; i++ ){
-        if ( fs.existsSync(`${filePath}.${inputTypes[i]}`) ){
-          providerObject = await loadStructuredFile(`${filePath}.${inputTypes[i]}`);
-          return providerObject;
+    constructor( category, resourceName, provider ){
+        this.localBackendDir = pathManager.getBackendDirPath();
+        this.cloudBackendDir = pathManager.getCurrentCloudBackendDirPath();
+        this.resourceName = resourceName;
+        this.category = category;
+        this.provider = this.normalizeProviderForFileNames(provider);
+        this.localTemplate = {}; //requires file-access, hence loaded from async methods
+        this.cloudTemplate = {}; //requires file-access, hence loaded from async methods
+        //Note: All file names include full-path but no extension.Extension will be added later.
+        this.resourceFiles = {
+            localTemplateFile : path.normalize(path.join(this.localBackendDir, category, resourceName)),
+            cloudTemplateFile : path.normalize(path.join(this.cloudBackendDir, category, resourceName)),
+            //Used for API category, since cloudformation is overridden by user generated changes
+            localBuildTemplateFile : path.normalize(path.join(this.localBackendDir, category, resourceName, 'build',`${this.provider}-template`)),
+            cloudBuildTemplateFile : path.normalize(path.join(this.cloudBackendDir, category, resourceName, 'build', `${this.provider}-template`)),
+            //Use for non-API category like storage, auth
+            localPreBuildTemplateFile: path.normalize(path.join(this.localBackendDir, category, resourceName, this.getResourceProviderFileName(resourceName, this.provider))),
+            cloudPreBuildTemplateFile: path.normalize(path.join(this.cloudBackendDir , category, resourceName, this.getResourceProviderFileName(resourceName, this.provider))),
         }
-      }
-      return providerObject;
-    } catch (e) {
-      //No resource file found
-      console.log(e);
-      throw e;
+        //console.log("SACPC:ResourceDiff: ", this.resourceFiles);
     }
-  }
 
-  async function getObjectFromProviderFile( resourcePath, resourceName, providerType ) {
-    //Read the cloudformation/terraform file
-    const resourceProviderFilePath = `${resourcePath}/${_getResourceProviderFileName(resourceName, providerType)}`;
-    //console.log("SACPCDEBUG:COLLATE: ", resourceProviderFilePath);
-    return await loadCloudFormationTemplate( resourceProviderFilePath ) //loads json, yaml or yml files
-  }
+    normalizeProviderForFileNames(provider:string){
+      //file-names are currently standardized around "cloudformation" not awscloudformation.
+      if ( provider === "awscloudformation"){
+        return CategoryProviders.CLOUDFORMATION
+      } else {
+        return provider;
+      }
+    }
 
-  function checkExist( filePath ){
-    const inputTypes = [ 'json', 'yaml', 'yml']
+    calculateDiffTemplate = async () => {
+      const resourceTemplatePaths = await this.getResourceFilePaths()
+      //load resource template objects
+      this.localTemplate = await this.loadCloudFormationTemplate(resourceTemplatePaths.localTemplatePath)
+      this.cloudTemplate = await this.loadCloudFormationTemplate(resourceTemplatePaths.cloudTemplatePath);
+      const diff = cfnDiff.diffTemplate(this.cloudTemplate, this.localTemplate );
+      return diff;
+    }
+
+    isCategory( categoryType ){
+       return this.category.toLowerCase() == categoryType
+    }
+
+    getResourceFilePaths = async() => {
+      if ( this.isCategory(CategoryTypes.API) ){
+          //API artifacts are stored in build folder for cloud resources
+          //SACPCTBD!!: This should not rely on the presence or absence of a file, it should be based on the context state.
+          //e.g user-added, amplify-built-not-deployed, amplify-deployed-failed, amplify-deployed-success
+          return {
+            localTemplatePath : (checkExist(this.resourceFiles.localBuildTemplateFile))?this.resourceFiles.localBuildTemplateFile: this.resourceFiles.localPreBuildTemplateFile ,
+            cloudTemplatePath : (checkExist(this.resourceFiles.cloudBuildTemplateFile))?this.resourceFiles.cloudBuildTemplateFile: this.resourceFiles.cloudPreBuildTemplateFile
+          }
+        }
+        return {
+            localTemplatePath: this.resourceFiles.localPreBuildTemplateFile ,
+            cloudTemplatePath: this.resourceFiles.cloudPreBuildTemplateFile
+        }
+    }
+
+    printResourceDetailStatus = async ( mutationInfo : StackMutationInfo ) => {
+      const header = `${ mutationInfo.consoleStyle(mutationInfo.label)}`;
+      const diff = await this.calculateDiffTemplate();
+      //display template diff to console
+      //print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(this.category)}/${this.resourceName} : ${header}`);
+      print.info(`${vaporStyle(`[\u27A5] Resource Stack: ${capitalize(this.category)}/${this.resourceName}`)} : ${header}`);
+      const diffCount = await this.printStackDiff( diff );
+      if ( diffCount === 0 ){
+          console.log("No changes  ")
+      }
+    }
+
+    normalizeAWSResourceName( cfnType ){
+       let parts = cfnType.split("::");
+       parts.shift(); //remove "AWS::"
+       return parts.join("::")
+    }
+
+    normalizeCdkChangeImpact( cdkChangeImpact : cfnDiff.ResourceImpact ){
+        switch (cdkChangeImpact) {
+          case cfnDiff.ResourceImpact.MAY_REPLACE:
+            return chalk.italic(chalk.yellow('may be replaced'));
+          case cfnDiff.ResourceImpact.WILL_REPLACE:
+            return chalk.italic(chalk.bold(chalk.red('replace')));
+          case cfnDiff.ResourceImpact.WILL_DESTROY:
+            return chalk.italic(chalk.bold(chalk.red('destroy')));
+          case cfnDiff.ResourceImpact.WILL_ORPHAN:
+            return chalk.italic(chalk.yellow('orphan'));
+          case cfnDiff.ResourceImpact.WILL_UPDATE:
+          case cfnDiff.ResourceImpact.WILL_CREATE:
+          case cfnDiff.ResourceImpact.NO_CHANGE:
+            return ''; // no extra info is gained here
+        }
+    }
+
+    getActionStyle( changeType:StackMutationInfo, valueType ){
+      return ` ${changeType.consoleStyle(changeType.icon)} ${this.normalizeAWSResourceName(valueType)}`
+    }
+
+    getUpdateImpactStyle( summaryStringArray ){
+      return summaryStringArray.join(`\n  \u2514\u2501 `)
+    }
+
+    constructChangeSummary( change ){
+       let action : string;
+       let propChangeSummary : string[] = [];
+       if ( change.isAddition ){
+          action = this.getActionStyle(stackMutationType.CREATE, change.newValue.Type);
+       } else if (change.isRemoval){
+          action = this.getActionStyle(stackMutationType.DELETE, change.oldValue.Type);
+       } else {
+           //Its an update
+           action = this.getActionStyle(stackMutationType.UPDATE, change.newValue.Type);
+           Object.keys(change.propertyDiffs).map( propType => {
+             const changeData = change.propertyDiffs[propType];
+             if ( changeData.isDifferent ) {
+                   const summary = `${propType} ${this.normalizeCdkChangeImpact(changeData.changeImpact)}`;
+                   propChangeSummary.push(summary)
+             }
+           })
+       }
+       if ( propChangeSummary.length > 0 ){
+        const summaryString = this.getUpdateImpactStyle(propChangeSummary)
+        return `${action} ${summaryString}`
+       } else {
+        return action
+       }
+    }
+
+    getDiffSummary = async () => {
+      const templateDiff = await this.calculateDiffTemplate();
+      const results : string[] = [];
+      templateDiff.resources.forEachDifference( (logicalId, change)=> {
+        results.push( this.constructChangeSummary( change ));
+      });
+      if ( results.length > 0){
+        return results.join("\n");
+      } else {
+        return chalk.grey("no change");
+      }
+    }
+
+    printResourceSummaryStatus = async ( mutationInfo : StackMutationInfo ) => {
+      const header = `${ mutationInfo.consoleStyle(mutationInfo.label)}`;
+      const templateDiff = await this.calculateDiffTemplate();
+      //display template diff to console
+      print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(this.category)}/${this.resourceName} : ${header}`);
+      templateDiff.resources.forEachDifference( (logicalId, change)=> {
+        console.log(this.constructChangeSummary( change )  );
+      })
+    }
+
+    printStackDiff = async ( templateDiff, stream?: cfnDiff.FormatStream ) =>{
+        // filter out 'AWS::CDK::Metadata' resources from the template
+        if (templateDiff.resources ) {
+          templateDiff.resources = templateDiff.resources.filter(change => {
+            if (!change) { return true; }
+            if (change.newResourceType === 'AWS::CDK::Metadata') { return false; }
+            if (change.oldResourceType === 'AWS::CDK::Metadata') { return false; }
+            return true;
+          });
+        }
+        if (!templateDiff.isEmpty) {
+          cfnDiff.formatDifferences(stream || process.stderr, templateDiff);
+        }
+        return templateDiff.differenceCount;
+    }
+
+
+    getResourceProviderFileName(  resourceName : string, providerType : string ){
+        //resourceName is the name of an instantiated category type e.g name of your s3 bucket
+        //providerType is the name of the cloud infrastructure provider e.g cloudformation/terraform
+        return `${resourceName}-${providerType}-template`
+    }
+
+    loadStructuredFile = async(fileName: string, deserializeFunction) => {
+        const contents = await fs.readFile(fileName, { encoding: 'utf-8' });
+        return deserializeFunction(contents);
+    }
+
+    loadCloudFormationTemplate = async( filePath ) => {
+        try {
+          //Load yaml or yml or json files
+          let providerObject = {};
+          const inputFileExtensions = Object.keys(InputFileExtensionDeserializers)
+          for( let i = 0 ; i < inputFileExtensions.length ; i++ ){
+            if ( fs.existsSync(`${filePath}.${inputFileExtensions[i]}`) ){
+              providerObject = await this.loadStructuredFile(`${filePath}.${inputFileExtensions[i]}`, //Filename with extension
+                                                             InputFileExtensionDeserializers[inputFileExtensions[i]] //Deserialization function
+                                                             );
+              return providerObject;
+            }
+          }
+          return providerObject;
+        } catch (e) {
+          //No resource file found
+          console.log(e);
+          throw e;
+        }
+    }
+
+}
+
+function checkExist( filePath ){
+    const inputTypes = [ 'json', 'yaml', 'yml'] ; //check for existence of any one of the extensions.
     for( let i = 0 ; i < inputTypes.length ; i++ ){
       if ( fs.existsSync(`${filePath}.${inputTypes[i]}`) ){
         return true;
       }
     }
     return false;
-  }
-
-  function getLocalBackendDirPath(categoryName, resourceName){
-    return path.normalize(path.join(pathManager.getBackendDirPath(), categoryName, resourceName))
- }
-
- function getCloudBackendDirPath(categoryName, resourceName){
-   return path.normalize(path.join(pathManager.getCurrentCloudBackendDirPath(), categoryName, resourceName))
- }
-
-
-
-function printStackDiff(
-    oldTemplate: any,
-    newTemplate: any,
-    strict: boolean,
-    stream?: cfnDiff.FormatStream): number {
-
-    const diff = cfnDiff.diffTemplate(oldTemplate, newTemplate );
-
-    // filter out 'AWS::CDK::Metadata' resources from the template
-    if (diff.resources && !strict) {
-      diff.resources = diff.resources.filter(change => {
-        if (!change) { return true; }
-        if (change.newResourceType === 'AWS::CDK::Metadata') { return false; }
-        if (change.oldResourceType === 'AWS::CDK::Metadata') { return false; }
-        return true;
-      });
-    }
-
-    if (!diff.isEmpty) {
-      cfnDiff.formatDifferences(stream || process.stderr, diff);
-    }
-    return diff.differenceCount;
-  }
-  const vaporStyle = chalk.hex('#8be8fd').bgHex('#282a36');
-
-async function printAPIResourceDiff(header, provider, resource, localBackendDir, cloudBackendDir ){
-
-    const cfnTemplateGlobPattern = '*template*.+(yaml|yml|json)';
-    //API artifacts are stored in build folder for cloud resources
-    const cloudBuildTemplateFile = path.normalize(path.join(cloudBackendDir, "build/cloudformation-template"));
-    const localBuildTemplateFile =  path.normalize(path.join(localBackendDir, "build/cloudformation-template"));
-    //SACPCTBD!!: This should not rely on the presence or absence of a file, it should be based on the context state.
-    //e.g user-added, amplify-built-not-deployed, amplify-deployed-failed, amplify-deployed-success
-    const localAPIFile = (checkExist(localBuildTemplateFile))?localBuildTemplateFile:`${localBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`;
-    const cloudAPIFile = (checkExist(cloudBuildTemplateFile))?cloudBuildTemplateFile :  `${cloudBackendDir}/${_getResourceProviderFileName(resource.resourceName, provider)}`
-
-    //diff all cloudformation
-    const cloudTemplate:any = await loadCloudFormationTemplate( cloudAPIFile );
-    const localUpdatedTemplate:any = await loadCloudFormationTemplate( localAPIFile ); //exists if deployed once.
-
-    print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(resource.category)}/${resource.resourceName} : ${header}`);
-    const diffCount = printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
-    if ( diffCount === 0 ){
-       console.log("No changes  ");
-    }
 }
 
-export async function CollateResourceDiffs( resources , header ){
-    let count = 0;
+//const vaporStyle = chalk.hex('#8be8fd').bgHex('#282a36');
+const vaporStyle = chalk.bgRgb(15, 100, 204)
+
+
+export async function CollateResourceDiffs( resources , mutationInfo : StackMutationInfo  /* create/update/delete */ ){
     const provider = CategoryProviders.CLOUDFORMATION;
     resources.map( async (resource) => {
-            const localBackendDir = getLocalBackendDirPath(resource.category, resource.resourceName);
-            const cloudBackendDir = getCloudBackendDirPath(resource.category, resource.resourceName);
-            if ( resource.category.toLowerCase() === CategoryTypes.API ){
-               await printAPIResourceDiff(header, provider, resource, localBackendDir, cloudBackendDir );
-            } else {
-              //print cdk diff
-              const localUpdatedTemplate:any = await getObjectFromProviderFile( localBackendDir,
-                                                                                resource.resourceName,
-                                                                                provider);
-              const cloudTemplate:any = await getObjectFromProviderFile( cloudBackendDir,
-                                                                        resource.resourceName,
-                                                                        provider);
-              //console.log("SACPCDEBUG: Diff : localTemplateFile: ", JSON.stringify(localUpdatedTemplate, null, 2),
-              //                                  "cloudBackendTemplate:", JSON.stringify(cloudTemplate, null, 2) );
-              print.info(`[\u27A5] ${vaporStyle("Stack: ")} ${capitalize(resource.category)}/${resource.resourceName} : ${header}`);
-              const diffCount = printStackDiff( cloudTemplate, localUpdatedTemplate, false /* not strict */ );
-              if ( diffCount === 0 ){
-                console.log("No changes  ")
-              }
-           }
+            const testResourceDiff = new ResourceDiff( resource.category, resource.resourceName, provider );
+            await testResourceDiff.printResourceDetailStatus( mutationInfo );
+            //await testResourceDiff.printResourceSummaryStatus( mutationInfo );
       } );
   }
 

@@ -42,7 +42,7 @@ export function showAllHelp(context) {
     },
     {
       name: 'status',
-      description: 'Shows the state of local resources not yet pushed to the cloud (Create/Update/Delete).',
+      description: `Shows the state of local resources not yet pushed to the cloud (Create/Update/Delete).\n amplify status  (for summary status)\n amplify status -category <category> (for detailed status)`,
     },
     {
       name: 'delete',
