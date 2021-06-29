@@ -1,4 +1,4 @@
-import { nspawn as spawn, getCLIPath, getSocialProviders } from 'amplify-e2e-core';
+import { nspawn as spawn, getCLIPath, getSocialProviders, isCI } from 'amplify-e2e-core';
 
 export function addEnvironment(cwd: string, settings: { envName: string; numLayers?: number }): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -12,10 +12,6 @@ export function addEnvironment(cwd: string, settings: { envName: string; numLaye
       .wait('Please choose the profile you want to use')
       .sendCarriageReturn();
 
-    for (let i = 0; i < settings.numLayers || 0; ++i) {
-      chain.wait('Choose the environment to import the layer access settings from:').sendCarriageReturn(); // Choose first env in list
-    }
-
     chain.wait('Initialized your environment successfully.').run((err: Error) => {
       if (!err) {
         resolve();
@@ -23,6 +19,39 @@ export function addEnvironment(cwd: string, settings: { envName: string; numLaye
         reject(err);
       }
     });
+  });
+}
+
+export function updateEnvironment(cwd: string, settings: { permissionsBoundaryArn: string }) {
+  return new Promise<void>((resolve, reject) => {
+    spawn(getCLIPath(), ['env', 'update'], { cwd, stripColors: true })
+      .wait('Specify an IAM Policy ARN to use as a permissions boundary for all Amplify-generated IAM Roles')
+      .sendLine(settings.permissionsBoundaryArn)
+      .run((err: Error) => (!!err ? reject(err) : resolve()));
+  });
+}
+
+export function addEnvironmentYes(cwd: string, settings: { envName: string; disableAmplifyAppCreation?: boolean }): Promise<void> {
+  settings.disableAmplifyAppCreation = settings.disableAmplifyAppCreation ?? true;
+  const env = settings.disableAmplifyAppCreation
+    ? {
+        CLI_DEV_INTERNAL_DISABLE_AMPLIFY_APP_CREATION: '1',
+      }
+    : undefined;
+
+  const providerConfig = {
+    awscloudformation: {
+      configLevel: 'project',
+      useProfile: true,
+      profileName: isCI() ? 'amplify-integ-test-user' : 'default',
+    },
+  };
+  return new Promise((resolve, reject) => {
+    spawn(getCLIPath(), ['env', 'add', '--yes', '--envName', settings.envName, '--providers', JSON.stringify(providerConfig)], {
+      cwd,
+      stripColors: true,
+      env,
+    }).run((err: Error) => (err ? reject(err) : resolve()));
   });
 }
 

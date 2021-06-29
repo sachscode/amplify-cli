@@ -100,6 +100,9 @@ export async function pushResources(
 
       throw err;
     }
+  } else {
+    // there's currently no other mechanism to stop the execution of the postPush workflow in this case, so exiting here
+    exitOnNextTick(1);
   }
 
   return continueToPush;
