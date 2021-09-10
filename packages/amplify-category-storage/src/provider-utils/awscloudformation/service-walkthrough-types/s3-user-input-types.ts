@@ -19,11 +19,24 @@ export enum S3PermissionType {
 
 //User input data for S3 service
 export interface S3UserInputs {
-     resourceName : string,
-     bucketName: string,
+     resourceName : string|undefined,
+     bucketName : string|undefined,
      storageAccess : S3AccessType,
      selectedGuestPermissions: S3PermissionType[],
      selectedAuthenticatedPermissions : S3PermissionType[],
      isTriggerEnabled: boolean, //enable if trigger
      triggerFunctionName: string|undefined
+}
+
+export function defaultS3UserInputs() :S3UserInputs {
+    const defaultS3UserInputValues: S3UserInputs = {
+        resourceName : undefined,
+        bucketName: undefined,
+        storageAccess : S3AccessType.AUTH_ONLY,
+        selectedGuestPermissions : [],
+        selectedAuthenticatedPermissions : [S3PermissionType.PUT_OBJECT, S3PermissionType.GET_OBJECT, S3PermissionType.LIST_BUCKET],
+        isTriggerEnabled:false,
+        triggerFunctionName:undefined
+    };
+    return defaultS3UserInputValues;
 }

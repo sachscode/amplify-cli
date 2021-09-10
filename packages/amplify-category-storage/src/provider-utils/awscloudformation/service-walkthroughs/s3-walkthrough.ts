@@ -4,6 +4,7 @@ import * as fs from 'fs-extra';
 import * as os from 'os';
 import _ from 'lodash';
 import uuid from 'uuid';
+import { printer } from 'amplify-prompts';
 import { ResourceDoesNotExistError, ResourceAlreadyExistsError, exitOnNextTick, $TSAny } from 'amplify-cli-core';
 import { S3InputState } from './s3-user-input-state';
 import { pathManager } from 'amplify-cli-core';
@@ -24,7 +25,7 @@ const permissionMap = {
   delete: ['s3:DeleteObject'],
 };
 
-export const addWalkthrough = async (context: any, defaultValuesFilename: any, serviceMetadata: any, options: any) => {
+async function addWalkthrough(context: any, defaultValuesFilename: any, serviceMetadata: any, options: any){
   while (!checkIfAuthExists(context)) {
     if (
       await context.amplify.confirmPrompt(
@@ -43,7 +44,7 @@ export const addWalkthrough = async (context: any, defaultValuesFilename: any, s
 
   if (resourceName) {
     const errMessage = 'Amazon S3 storage was already added to your project.';
-    context.print.warning(errMessage);
+    printer.warn(errMessage);
     await context.usageData.emitError(new ResourceAlreadyExistsError(errMessage));
 
     exitOnNextTick(0);
@@ -52,7 +53,7 @@ export const addWalkthrough = async (context: any, defaultValuesFilename: any, s
   }
 };
 
-export const updateWalkthrough = (context: any, defaultValuesFilename: any, serviceMetada: any) => {
+async function  updateWalkthrough(context: any, defaultValuesFilename: any, serviceMetada: any){
   const { amplify } = context;
   const { amplifyMeta } = amplify.getProjectDetails();
 
@@ -66,7 +67,7 @@ export const updateWalkthrough = (context: any, defaultValuesFilename: any, serv
 
   if (Object.keys(storageResources).length === 0) {
     const errMessage = 'No resources to update. You need to add a resource.';
-    context.print.error(errMessage);
+    printer.error(errMessage);
     context.usageData.emitError(new ResourceDoesNotExistError(errMessage));
     exitOnNextTick(0);
     return;
@@ -76,7 +77,7 @@ export const updateWalkthrough = (context: any, defaultValuesFilename: any, serv
 
   // For better DX check if the storage is imported
   if (amplifyMeta[category][resourceName].serviceType === 'imported') {
-    context.print.error('Updating of an imported storage resource is not supported.');
+    printer.error('Updating of an imported storage resource is not supported.');
     return;
   }
 
@@ -182,11 +183,11 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
   if (userPoolGroupList.length > 0) {
     do {
       if (permissionSelected === 'Learn more') {
-        context.print.info('');
-        context.print.info(
+        printer.info('');
+        printer.info(
           'You can restrict access using CRUD policies for Authenticated Users, Guest Users, or on individual Groups that users belong to in a User Pool. If a user logs into your application and is not a member of any group they will use policy set for “Authenticated Users”, however if they belong to a group they will only get the policy associated with that specific group.',
         );
-        context.print.info('');
+        printer.info('');
       }
 
       const permissionSelection = await inquirer.prompt({
@@ -360,7 +361,7 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
       try {
         (answers as any).triggerFunction = await addTrigger(context, (parameters as any).resourceName, undefined, (parameters as any).adminTriggerFunction, options);
       } catch (e) {
-        context.print.error(e.message);
+        printer.error(e.message);
       }
     } else {
       (answers as any).triggerFunction = 'NONE';
@@ -384,7 +385,7 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
             (answers as any).triggerFunction = await addTrigger(context, (parameters as any).resourceName, (parameters as any).triggerFunction, (parameters as any).adminTriggerFunction, options);
             continueWithTriggerOperationQuestion = false;
           } catch (e) {
-            context.print.error(e.message);
+            printer.error(e.message);
             continueWithTriggerOperationQuestion = true;
           }
           break;
@@ -403,7 +404,7 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
           break;
         }
         default:
-          context.print.error(`${triggerOperationAnswer.triggerOperation} not supported`);
+          printer.error(`${triggerOperationAnswer.triggerOperation} not supported`);
       }
     }
   }
@@ -424,7 +425,7 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
   }
 
   if (checkResult.errors && checkResult.errors.length > 0) {
-    context.print.warning(checkResult.errors.join(os.EOL));
+    printer.warn(checkResult.errors.join(os.EOL));
   }
 
   // If auth is not imported and there were errors, adjust or enable auth configuration
@@ -442,7 +443,7 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
     storageRequirements,
 ]);
     } catch (error) {
-      context.print.error(error);
+      printer.error(error);
       throw error;
     }
   }
@@ -761,7 +762,7 @@ async function addTrigger(context: any, resourceName: any, triggerFunction: any,
 
       fs.writeFileSync(functionCFNFilePath, functionCFNString, 'utf8');
 
-      context.print.success(`Successfully updated resource ${functionName} locally`);
+      printer.success(`Successfully updated resource ${functionName} locally`);
     }
   } else {
     // Create a new lambda trigger
@@ -812,7 +813,7 @@ async function addTrigger(context: any, resourceName: any, triggerFunction: any,
 
     await context.amplify.updateamplifyMetaAfterResourceAdd('function', functionName, backendConfigs);
 
-    context.print.success(`Successfully added resource ${functionName} locally`);
+    printer.success(`Successfully added resource ${functionName} locally`);
 
     if (await context.amplify.confirmPrompt(`Do you want to edit the local ${functionName} lambda function now?`)) {
       await context.amplify.openEditor(context, `${targetDir}/function/${functionName}/src/index.js`);
@@ -1188,7 +1189,7 @@ export const checkIfAuthExists = (context: any) => {
   return authExists;
 };
 
-export const migrate = (context: any, projectPath: any, resourceName: any) => {
+function migrateCategory(context: any, projectPath: any, resourceName: any){
   const resourceDirPath = path.join(projectPath, 'amplify', 'backend', category, resourceName);
 
   // Change CFN file
@@ -1434,3 +1435,11 @@ function getTriggersForLambdaConfiguration(protectionLevel: any, functionName: a
   ];
   return triggers;
 }
+
+
+module.exports = {
+  addWalkthrough,
+  updateWalkthrough,
+  migrate: migrateCategory,
+  getIAMPolicies,
+};
