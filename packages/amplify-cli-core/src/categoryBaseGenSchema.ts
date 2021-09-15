@@ -3,10 +3,11 @@
  * Generates JSON-schema from Typescript structures.The generated schemas
  * can be used for run-time validation of Walkthrough/Headless structures.
  */
-import { getProgramFromFiles, buildGenerator, PartialArgs } from 'typescript-json-schema';
+import * as TJS from 'typescript-json-schema';
 import fs from 'fs-extra';
 import path from 'path';
-import Ajv from "ajv";
+import Ajv = require("ajv");
+import { TSAnyKeyword } from '@babel/types';
 
 // Interface types are expected to be exported as "typeName" in the file
 export type TypeDef = {
@@ -53,27 +54,33 @@ export class CLIInputSchemaGenerator {
     const generatedFilePaths: string[] = [];
 
     // schema generation settings. see https://www.npmjs.com/package/typescript-json-schema#command-line
-    const settings: PartialArgs = {
+    const settings: TJS.PartialArgs = {
       required: true,
     };
-
+    // optionally pass ts compiler options
+    const compilerOptions: TJS.CompilerOptions = {
+      strictNullChecks: true,
+      esModuleInterop : true
+    };
     for (const typeDef of this.serviceTypeDefs) {
       //get absolute file path to the user-input types for the given service
       const svcAbsoluteFilePath = this.getSvcFileAbsolutePath(typeDef.service);
       //generate json-schema from the input-types
-      const typeSchema = buildGenerator(getProgramFromFiles([svcAbsoluteFilePath]), settings)!.getSchemaForSymbol(typeDef.typeName);
+      const program = TJS.getProgramFromFiles([svcAbsoluteFilePath], compilerOptions);
+      const generator = TJS.buildGenerator(program, settings);
+      const typeSchema = generator!.getSchemaForSymbol(typeDef.typeName);
       //save json-schema file for the input-types. (used to validate cli-inputs.json)
       const outputSchemaFilePath = path.resolve(
         path.join(this.SCHEMA_FILES_ROOT, typeDef.service, this.getSchemaFileNameForType(typeDef.typeName)),
       );
       if (!force && fs.existsSync(outputSchemaFilePath)) {
         this.printWarningSchemaFileExists();
-        return generatedFilePaths;
+      } else {
+        fs.ensureFileSync(outputSchemaFilePath);
+        fs.writeFileSync(outputSchemaFilePath, JSON.stringify(typeSchema, undefined, 4));
+        //print success status to the terminal
+        this.printSuccessSchemaFileWritten(typeDef.typeName);
       }
-      fs.ensureFileSync(outputSchemaFilePath);
-      fs.writeFileSync(outputSchemaFilePath, JSON.stringify(typeSchema, undefined, 4));
-      //print success status to the terminal
-      this.printSuccessSchemaFileWritten(typeDef.typeName);
       generatedFilePaths.push( outputSchemaFilePath );
     }
     return generatedFilePaths;
@@ -108,9 +115,8 @@ export class CLIInputSchemaValidator {
      const userInputSchema = await this.getUserInputSchema();
      return this._ajv.validate(userInputSchema, userInput)
     } catch (ex) {
-      return;
+      return false;
     }
-
   }
 
 }
