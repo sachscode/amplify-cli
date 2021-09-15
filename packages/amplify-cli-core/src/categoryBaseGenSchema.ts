@@ -108,9 +108,8 @@ export class CLIInputSchemaValidator {
      const userInputSchema = await this.getUserInputSchema();
      return this._ajv.validate(userInputSchema, userInput)
     } catch (ex) {
-      return;
+      return false;
     }
-
   }
 
 }

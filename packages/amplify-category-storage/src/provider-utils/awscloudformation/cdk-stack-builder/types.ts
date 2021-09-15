@@ -1,6 +1,7 @@
 import * as cdk from '@aws-cdk/core';
 import * as ddb from '@aws-cdk/aws-dynamodb';
 import * as s3Cdk from '@aws-cdk/aws-s3';
+import * as iamCdk from '@aws-cdk/aws-iam';
 
 
 export interface AmplifyDDBResourceTemplate {
@@ -29,32 +30,55 @@ export interface AmplifyCDKL1 {
     addCfnResource(props: cdk.CfnResourceProps, logicalId: string): void;
 }
 
+
 export interface AmplifyS3ResourceTemplate {
-    s3Bucket?: s3Cdk.CfnBucket
+    s3Bucket?: s3Cdk.CfnBucket;
+    s3AuthPublicPolicy?: iamCdk.CfnPolicy
+    s3AuthProtectedPolicy?: iamCdk.CfnPolicy
+    s3AuthPrivatePolicy?: iamCdk.CfnPolicy
+    s3AuthUploadPolicy?: iamCdk.CfnPolicy
+    s3AuthReadPolicy?: iamCdk.CfnPolicy
+    s3GuestPublicPolicy?: iamCdk.CfnPolicy
+    s3GuestUploadPolicy?: iamCdk.CfnPolicy
+    s3GuestReadPolicy?: iamCdk.CfnPolicy
+    addCfnParameter(props: cdk.CfnParameterProps, logicalId: string): void;
+    addCfnOutput(props: cdk.CfnOutputProps, logicalId: string): void;
+    addCfnMapping(props: cdk.CfnMappingProps, logicalId: string): void;
+    addCfnCondition(props: cdk.CfnConditionProps, logicalId: string): void;
+    addCfnResource(props: cdk.CfnResourceProps, logicalId: string): void;
 }
 
+//Helper functions
+const getS3PrivatePolicy = ( policyId: string ) => `Private_policy_${policyId}`;
+const getS3ProtectedPolicy = ( policyId : string ) => `Protected_policy_${policyId}`;
+const getS3PublicPolicy = ( policyId : string ) => `Protected_policy_${policyId}`;
+const getS3ReadPolicy = ( policyId : string ) => `read_policy_${policyId}`;
+const getS3UploadsPolicy = ( policyId : string ) => `Uploads_policy_${policyId}`;
+
+
 export interface AmplifyS3ResourceInputParameters {
-    bucketName : string,
-    authPolicyName : string,
-    unauthPolicyName : string,
-    authRoleName : string,
-    unauthRoleName : string,
-    s3PublicPolicy : string,
-    s3PrivatePolicy : string, //default:"NONE"
-    s3ProtectedPolicy : string,
-    s3UploadsPolicy : string,
-    s3ReadPolicy : string,
-    s3PermissionsAuthenticatedPublic : string,
-    s3PermissionsAuthenticatedProtected : string,
-    s3PermissionsAuthenticatedPrivate : string,
-    s3PermissionsAuthenticatedUploads : string,
-    s3PermissionsGuestPublic : string,
-    s3PermissionsGuestUploads : string,
-    AuthenticatedAllowList : string,
-    GuestAllowList : string,
-    selectedGuestPermissions : Array<string>,
-    selectedAuthenticatedPermissions : Array<string>,
-    triggerFunction : string
+    bucketName? : string,
+    policyUUID? : string,
+    authPolicyName? : string,
+    unauthPolicyName? : string,
+    authRoleName? : string,
+    unauthRoleName? : string,
+    s3PublicPolicy? : string,
+    s3PrivatePolicy? : string, //default:"NONE"
+    s3ProtectedPolicy? : string,
+    s3UploadsPolicy? : string,
+    s3ReadPolicy? : string,
+    s3PermissionsAuthenticatedPublic? : string,
+    s3PermissionsAuthenticatedProtected? : string,
+    s3PermissionsAuthenticatedPrivate? : string,
+    s3PermissionsAuthenticatedUploads? : string,
+    s3PermissionsGuestPublic? : string,
+    s3PermissionsGuestUploads? : string,
+    AuthenticatedAllowList? : string,
+    GuestAllowList? : string,
+    selectedGuestPermissions? : Array<string>,
+    selectedAuthenticatedPermissions? : Array<string>,
+    triggerFunction? : string
 }
 
 //Base class for all storage resource stacks ( S3, DDB )

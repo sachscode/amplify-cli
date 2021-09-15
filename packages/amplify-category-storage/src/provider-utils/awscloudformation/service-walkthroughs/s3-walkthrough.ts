@@ -6,7 +6,7 @@ import _ from 'lodash';
 import uuid from 'uuid';
 import { printer } from 'amplify-prompts';
 import { ResourceDoesNotExistError, ResourceAlreadyExistsError, exitOnNextTick, $TSAny } from 'amplify-cli-core';
-import { S3InputState } from './s3-user-input-state';
+import { S3CLIWalkthroughParams, S3InputState, S3InputStateOptions } from './s3-user-input-state';
 import { pathManager } from 'amplify-cli-core';
 
 // keep in sync with ServiceName in amplify-category-function, but probably it will not change
@@ -464,7 +464,7 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
       props = { ...defaultValues, ...options };
     }
     // Generate CFN file on add
-    await copyCfnTemplate(context, category, resource, props);
+    await copyCfnTemplate( context, category, resource, props as S3CLIWalkthroughParams );
   }
 
   delete defaultValues.resourceName;
@@ -486,16 +486,16 @@ async function configure(context: any, defaultValuesFilename: any, serviceMetada
   return resource;
 }
 //Generate CLIInputs.json
-function saveCLIInputsData( options : any ){
-  const backendDir = pathManager.getBackendDirPath();
-  const cliInputsFilePath = pathManager.getCliInputsPath(backendDir, category, options.resourceName!);
+function saveCLIInputsData( options : S3CLIWalkthroughParams ){
   //create inputManager
-  const cliInputManager = S3InputState.getInstance( S3InputState.cliWalkThroughToCliInputParams(cliInputsFilePath, options) );
+  const props:S3InputStateOptions = S3InputState.cliWalkThroughToCliInputParams(options);
+  const cliInputManager: S3InputState = S3InputState.getInstance( props );
+
   //save cliInputs.json
   cliInputManager.saveCliInputPayload(); //Save input data
 }
 
-async function copyCfnTemplate(context: any, categoryName: any, resourceName: any, options: any) {
+async function copyCfnTemplate(context: any, categoryName: any, resourceName: any, options: S3CLIWalkthroughParams) {
   const { amplify } = context;
   const targetDir = amplify.pathManager.getBackendDirPath();
   const pluginDir = __dirname;

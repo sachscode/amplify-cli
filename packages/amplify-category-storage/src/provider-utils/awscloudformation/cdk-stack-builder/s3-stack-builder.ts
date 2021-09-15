@@ -18,6 +18,16 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     guestIAMPolicy !: iamCdk.PolicyDocument;
     groupIAMPolicy !: iamCdk.PolicyDocument;
     conditions !: AmplifyS3Conditions;
+    s3AuthPublicPolicy?: iamCdk.CfnPolicy
+    s3AuthProtectedPolicy?: iamCdk.CfnPolicy
+    s3AuthPrivatePolicy?: iamCdk.CfnPolicy
+    s3AuthUploadPolicy?: iamCdk.CfnPolicy
+    s3AuthReadPolicy?: iamCdk.CfnPolicy
+    s3GuestPublicPolicy?: iamCdk.CfnPolicy
+    s3GuestUploadPolicy?: iamCdk.CfnPolicy
+    s3GuestReadPolicy?: iamCdk.CfnPolicy
+    s3GroupPolicyList?: Array<iamCdk.CfnPolicy>
+    s3TriggerPolicy?: iamCdk.CfnPolicy
 
     _props: S3UserInputs = defaultS3UserInputs();
     constructor( scope: cdk.Construct, id: string, props: S3UserInputs ) {
@@ -39,23 +49,22 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         });
 
         //2. Configure Notifications on the S3 bucket. [Optional]
-        if ( this._props.isTriggerEnabled ){
+        if ( this._props.triggerFunctionName ){
             this.s3Bucket.notificationConfiguration = this.buildNotificationConfiguration();
         }
 
         //3. Create IAM policies to control Cognito pool access to S3 bucket
-        this.createIAMPolicies();
-
+        this.createAndSetIAMPolicies();
 
         //4. Configure Cognito User pool policies
-        if ( this._props.isGroupsEnabled ){
-            this.createGroupPolicies( this._props.groupList as Array<string>,
+        if ( this._props.groupList && this._props.groupList.length > 0 ){
+            this.s3GroupPolicyList = this.createGroupPolicies( this._props.groupList as Array<string>,
                                       this._props.groupPolicyMap as $TSObject );
         }
 
         //5. Configure Trigger policies
-        if ( this._props.isTriggerEnabled ){
-            this.createTriggerPolicies();
+        if ( this._props.triggerFunctionName ){
+            this.s3TriggerPolicy = this.createTriggerPolicy();
         }
     }
 
@@ -163,15 +172,15 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         };
     }
 
-    createIAMPolicies(){
-        this.createS3AuthPublicPolicy();
-        this.createS3AuthProtectedPolicy();
-        this.createS3AuthPrivatePolicy();
-        this.createS3AuthUploadPolicy();
-        this.createS3GuestPublicPolicy();
-        this.createGuestUploadsPolicy();
-        this.createS3AuthReadPolicy();
-        this.createS3GuestReadPolicy();
+    createAndSetIAMPolicies(){
+        this.s3AuthPublicPolicy =  this.createS3AuthPublicPolicy();
+        this.s3AuthProtectedPolicy = this.createS3AuthProtectedPolicy();
+        this.s3AuthPrivatePolicy = this.createS3AuthPrivatePolicy();
+        this.s3AuthUploadPolicy = this.createS3AuthUploadPolicy();
+        this.s3GuestPublicPolicy = this.createS3GuestPublicPolicy();
+        this.s3GuestUploadPolicy = this.createGuestUploadsPolicy();
+        this.s3AuthReadPolicy = this.createS3AuthReadPolicy();
+        this.s3GuestReadPolicy = this.createS3GuestReadPolicy();
     }
 
     createS3IAMPolicyDocument( refStr: string, pathStr:string,  actionStr: string, effect: iamCdk.Effect ){
@@ -406,7 +415,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     }
 
     //S3TriggerBucketPolicy - Policy to control trigger function access to S3 bucket
-    createTriggerPolicies():iamCdk.CfnPolicy {
+    createTriggerPolicy():iamCdk.CfnPolicy {
         let policyDefinition: IAmplifyPolicyDefinition = {
             policyNameRef : "amplify-lambda-execution-policy-storage",
             roleRefs : [`function${this._props.triggerFunctionName}LambdaExecutionRole`],
