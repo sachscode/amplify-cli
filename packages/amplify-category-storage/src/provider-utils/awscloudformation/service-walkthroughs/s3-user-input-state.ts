@@ -2,8 +2,6 @@ import { S3AccessType, S3PermissionType, S3UserInputs, GroupAccessType } from '.
 import { AmplifyCategories, AmplifySupportedService } from 'amplify-cli-core';
 import { JSONUtilities, pathManager } from 'amplify-cli-core';
 import { CLIInputSchemaValidator } from 'amplify-cli-core';
-import * as iamCdk from '@aws-cdk/aws-iam';
-
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { AmplifyS3ResourceInputParameters } from '../cdk-stack-builder/types';
@@ -18,6 +16,22 @@ export enum S3CFNPermissionType {
     DELETE = "s3:DeleteObject",
     LIST = "s3:ListBucket"
 }
+
+export interface S3CFNPermissionMapType {
+  'create/update': S3CFNPermissionType[],
+  read: S3CFNPermissionType[],
+  delete: S3CFNPermissionType[],
+}
+//use this to capture input
+interface IObjectS3PermissionType {
+  [key: string]: S3PermissionType[];
+}
+export interface S3PermissionMapType extends IObjectS3PermissionType{
+  'create/update': S3PermissionType[],
+  read: S3PermissionType[],
+  delete: S3PermissionType[],
+}
+
 
 export type S3CFNDependsOn = {
      category : string,
@@ -191,12 +205,13 @@ export class S3InputState {
         inputPayload : {
             resourceName : options.resourceName,
             bucketName : options.bucketName,
-            selectedGuestPermissions: S3InputState.getInputPermissionsFromCfnPermissions(options.selectedGuestPermissions),
-            selectedAuthenticatedPermissions : S3InputState.getInputPermissionsFromCfnPermissions( options.selectedAuthenticatedPermissions ),
-            triggerFunctionName: (options.triggerFunction !== "NONE")? options.triggerFunction:undefined,
+            storageAccess : options.storageAccess,
+            guestAccess: S3InputState.getInputPermissionsFromCfnPermissions(options.selectedGuestPermissions),
+            authAccess : S3InputState.getInputPermissionsFromCfnPermissions( options.selectedAuthenticatedPermissions ),
+            triggerFunction: (options.triggerFunction && (options.triggerFunction !== "NONE"))? options.triggerFunction:undefined,
             policyUUID : options.policyUUID,
             groupList : Object.keys(options.groupPolicyMap),
-            groupPolicyMap : S3InputState.getPolicyMapFromCfnPolicyMap( options.groupPolicyMap )
+            groupAccess : S3InputState.getPolicyMapFromCfnPolicyMap( options.groupPolicyMap )
         },
         metadata : {
           dependsOn : options.dependsOn
@@ -209,9 +224,9 @@ export class S3InputState {
      const userInput : S3UserInputs = this.getUserInput();
      const cliInputParams: AmplifyS3ResourceInputParameters = {
         bucketName : userInput.bucketName,
-        triggerFunction: (userInput.triggerFunctionName !== "NONE")? userInput.triggerFunctionName:undefined,
-        selectedGuestPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.selectedGuestPermissions),
-        selectedAuthenticatedPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.selectedAuthenticatedPermissions),
+        triggerFunction: ( userInput.triggerFunction && userInput.triggerFunction !== "NONE")? userInput.triggerFunction:undefined,
+        selectedGuestPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.guestAccess),
+        selectedAuthenticatedPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.authAccess),
      }
      return cliInputParams;
   }
@@ -226,11 +241,13 @@ updateInputPayload( props: S3InputStateOptions ){
 }
 
 public static getInstance(props: S3InputStateOptions): S3InputState {
-    const projectPath = pathManager.findProjectRoot();
     if (!S3InputState.s3InputState) {
       S3InputState.s3InputState = new S3InputState(props.resourceName, props.inputPayload);
     }
-    S3InputState.s3InputState.updateInputPayload(props);
+    //update flow
+    if (props.inputPayload) {
+      S3InputState.s3InputState.updateInputPayload(props);
+    }
     return S3InputState.s3InputState;
 }
 
@@ -257,14 +274,13 @@ public getCliMetadata() : S3FeatureMetadata {
     return cliMetadata;
 }
 
-
 public saveCliInputPayload(): void {
     const backend = pathManager.getBackendDirPath();
     fs.ensureDirSync(path.join(pathManager.getBackendDirPath(), this._category, this._resourceName));
     try {
       JSONUtilities.writeJson(this._cliInputsFilePath, this._inputPayload);
     } catch (e) {
-      throw new Error(e);
+      throw new Error(e as string);
     }
   }
 }

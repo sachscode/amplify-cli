@@ -49,7 +49,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         });
 
         //2. Configure Notifications on the S3 bucket. [Optional]
-        if ( this._props.triggerFunctionName ){
+        if ( this._props.triggerFunction ){
             this.s3Bucket.notificationConfiguration = this.buildNotificationConfiguration();
         }
 
@@ -59,11 +59,11 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         //4. Configure Cognito User pool policies
         if ( this._props.groupList && this._props.groupList.length > 0 ){
             this.s3GroupPolicyList = this.createGroupPolicies( this._props.groupList as Array<string>,
-                                      this._props.groupPolicyMap as $TSObject );
+                                      this._props.groupAccess as $TSObject );
         }
 
         //5. Configure Trigger policies
-        if ( this._props.triggerFunctionName ){
+        if ( this._props.triggerFunction ){
             this.s3TriggerPolicy = this.createTriggerPolicy();
         }
     }
@@ -157,7 +157,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     }
 
     buildNotificationConfiguration(): s3Cdk.CfnBucket.NotificationConfigurationProperty{
-        const triggerFunctionRef = cdk.Fn.ref(`function${this._props.triggerFunctionName}Arn`);
+        const triggerFunctionRef = cdk.Fn.ref(`function${this._props.triggerFunction}Arn`);
         const lambdaConfigurations = [{
             event : "s3:ObjectCreated:*",
             function : triggerFunctionRef
@@ -418,7 +418,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     createTriggerPolicy():iamCdk.CfnPolicy {
         let policyDefinition: IAmplifyPolicyDefinition = {
             policyNameRef : "amplify-lambda-execution-policy-storage",
-            roleRefs : [`function${this._props.triggerFunctionName}LambdaExecutionRole`],
+            roleRefs : [`function${this._props.triggerFunction}LambdaExecutionRole`],
             statements : [
                 {
                     refStr  : "S3Bucket",

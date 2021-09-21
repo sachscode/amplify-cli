@@ -58,6 +58,7 @@ const getS3UploadsPolicy = ( policyId : string ) => `Uploads_policy_${policyId}`
 
 export interface AmplifyS3ResourceInputParameters {
     bucketName? : string,
+    resourceName?: string,
     policyUUID? : string,
     authPolicyName? : string,
     unauthPolicyName? : string,

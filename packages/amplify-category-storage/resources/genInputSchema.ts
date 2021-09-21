@@ -11,7 +11,7 @@ const S3StorageTypeDef: TypeDef = {
 };
 
 // Defines the type names and the paths to the TS files that define them
-const storageCategoryTypeDefs: TypeDef[] = [DDBStorageTypeDef];
+const storageCategoryTypeDefs: TypeDef[] = [S3StorageTypeDef, DDBStorageTypeDef];
 
 const schemaGenerator = new CLIInputSchemaGenerator(storageCategoryTypeDefs);
 schemaGenerator.generateJSONSchemas(); //convert CLI input data into json schemas.

@@ -23,8 +23,10 @@ export * from './banner-message';
 export * from './cliGetCategories';
 export * from './cliRemoveResourcePrompt';
 export * from "./cliViewAPI";
-export {TypeDef, CLIInputSchemaGenerator, CLIInputSchemaValidator} from "./categoryBaseGenSchema";
+
 export {AmplifyCategories, AmplifySupportedService, CLISubCommands, SecretFileMode} from './cliConstants';
+export {TypeDef, CLIInputSchemaGenerator, CLIInputSchemaValidator}  from "./categoryBaseGenSchema";
+
 
 // Temporary types until we can finish full type definition across the whole CLI
 
@@ -246,7 +248,7 @@ interface AmplifyToolkit {
     filteredResources?: { category: string; resourceName: string }[],
   ) => $TSAny;
   storeCurrentCloudBackend: () => $TSAny;
-  readJsonFile: () => $TSAny;
+  readJsonFile: (fileName: string ) => $TSAny;
   removeDeploymentSecrets: (context: $TSContext, category: string, resource: string) => void;
   removeResource: (
     context: $TSContext,
@@ -305,7 +307,7 @@ interface AmplifyToolkit {
   getTriggerPermissions: () => $TSAny;
   getTriggerEnvVariables: () => $TSAny;
   getTriggerEnvInputs: () => $TSAny;
-  getUserPoolGroupList: () => $TSAny;
+  getUserPoolGroupList: (context:$TSContext) => $TSAny;
   forceRemoveResource: () => $TSAny;
   writeObjectAsJson: () => $TSAny;
   hashDir: (dir: string, exclude: string[]) => Promise<string>;

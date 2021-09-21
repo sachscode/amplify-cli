@@ -6,6 +6,11 @@ export function enumToHelp( obj : object ){
     return `One of ${Object.values(obj)}`;
 }
 
+export enum S3TriggerFunctionType {
+    EXISTING_FUNCTION = 'Choose an existing function from the project',
+    NEW_FUNCTION = 'Create a new function'
+}
+
 export enum S3AccessType  {
     AUTH_AND_GUEST =  "authAndGuest",
     AUTH_ONLY =  "auth"
@@ -26,10 +31,11 @@ export interface S3UserInputs {
      resourceName : string|undefined,
      bucketName : string|undefined,
      policyUUID : string|undefined,
-     selectedGuestPermissions: S3PermissionType[],
-     selectedAuthenticatedPermissions : S3PermissionType[],
-     triggerFunctionName: string|undefined,
-     groupPolicyMap : GroupAccessType|undefined, //{ "admingroup": [create, read,  delete, list], "secondgroup" :[...''...] }
+     storageAccess : S3AccessType|undefined,
+     guestAccess: S3PermissionType[],
+     authAccess : S3PermissionType[],
+     triggerFunction: string|undefined,
+     groupAccess : GroupAccessType|undefined, //{ "admingroup": [create, read,  delete, list], "secondgroup" :[...''...] }
      groupList : Array<string>|undefined   //Keys of group policy Map
 }
 
@@ -37,11 +43,12 @@ export function defaultS3UserInputs() :S3UserInputs {
     const defaultS3UserInputValues: S3UserInputs = {
         resourceName : undefined,
         bucketName: undefined,
+        storageAccess : undefined,
         policyUUID : undefined,
-        selectedGuestPermissions : [],
-        selectedAuthenticatedPermissions : [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.LIST],
-        triggerFunctionName:undefined,
-        groupPolicyMap: undefined,
+        guestAccess : [],
+        authAccess : [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.LIST],
+        triggerFunction:undefined,
+        groupAccess: undefined,
         groupList: undefined
     };
     return defaultS3UserInputValues;

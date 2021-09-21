@@ -36,11 +36,11 @@ const generatePolicyPrefix = ( ) => {
 
 
 //Helper functions
-const generateS3PrivatePolicy = ( policyId ) => `Private_policy_${policyId}`;
-const generateS3ProtectedPolicy = ( policyId ) => `Protected_policy_${policyId}`;
-const generateS3PublicPolicy = ( policyId ) => `Protected_policy_${policyId}`;
-const generateS3ReadPolicy = ( policyId ) => `read_policy_${policyId}`;
-const generateS3UploadsPolicy = ( policyId ) => `Uploads_policy_${policyId}`;
+const getS3PrivatePolicy = ( policyId ) => `Private_policy_${policyId}`;
+const getS3ProtectedPolicy = ( policyId ) => `Protected_policy_${policyId}`;
+const getS3PublicPolicy = ( policyId ) => `Protected_policy_${policyId}`;
+const getS3ReadPolicy = ( policyId ) => `read_policy_${policyId}`;
+const getS3UploadsPolicy = ( policyId ) => `Uploads_policy_${policyId}`;
 
 //idempotent
 const getAllAuthDefaults = ( policyId ) => {
@@ -53,11 +53,11 @@ const getAllAuthDefaults = ( policyId ) => {
     s3PermissionsAuthenticatedUploads: 's3:PutObject',
     s3PermissionsGuestPublic: 'DISALLOW',
     s3PermissionsGuestUploads: 'DISALLOW',
-    s3PrivatePolicy: generateS3PrivatePolicy(policyId),
-    s3ProtectedPolicy: generateS3ProtectedPolicy(policyId),
-    s3PublicPolicy: generateS3PublicPolicy(policyId),
-    s3ReadPolicy: generateS3ReadPolicy( policyId ),
-    s3UploadsPolicy: generateS3UploadsPolicy(policyId),
+    s3PrivatePolicy: getS3PrivatePolicy(policyId),
+    s3ProtectedPolicy: getS3ProtectedPolicy(policyId),
+    s3PublicPolicy: getS3PublicPolicy(policyId),
+    s3ReadPolicy: getS3ReadPolicy( policyId ),
+    s3UploadsPolicy: getS3UploadsPolicy(policyId),
     selectedAuthenticatedPermissions: ['s3:PutObject', 's3:GetObject', 's3:ListBucket', 's3:DeleteObject'],
   };
 
@@ -77,11 +77,11 @@ const getAllAuthAndGuestDefaults = ( policyId ) => {
     s3PermissionsAuthenticatedUploads: 's3:PutObject',
     s3PermissionsGuestPublic: 's3:PutObject,s3:GetObject,s3:DeleteObject',
     s3PermissionsGuestUploads: 's3:PutObject',
-    s3PrivatePolicy: generateS3PrivatePolicy(policyId),
-    s3ProtectedPolicy: generateS3ProtectedPolicy(policyId),
-    s3PublicPolicy: generateS3PublicPolicy(policyId),
-    s3ReadPolicy: generateS3ReadPolicy(policyId),
-    s3UploadsPolicy: generateS3UploadsPolicy(policyId),
+    s3PrivatePolicy: getS3PrivatePolicy(policyId),
+    s3ProtectedPolicy: getS3ProtectedPolicy(policyId),
+    s3PublicPolicy: getS3PublicPolicy(policyId),
+    s3ReadPolicy: getS3ReadPolicy(policyId),
+    s3UploadsPolicy: getS3UploadsPolicy(policyId),
     selectedAuthenticatedPermissions: ['s3:PutObject', 's3:GetObject', 's3:ListBucket', 's3:DeleteObject'],
     selectedGuestPermissions: ['s3:PutObject', 's3:GetObject', 's3:ListBucket', 's3:DeleteObject'],
   };
