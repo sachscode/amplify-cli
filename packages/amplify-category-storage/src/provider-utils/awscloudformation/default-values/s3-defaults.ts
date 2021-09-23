@@ -1,10 +1,8 @@
 
 import uuid from 'uuid';
 
-const getAllDefaults = (project: any) => {
+export const getAllDefaults = (project: any, shortId : string) => {
   const name = project.projectConfig.projectName.toLowerCase();
-  const [shortId] = uuid().split('-');
-
   const authRoleName = {
     Ref: 'AuthRoleName',
   };

@@ -21,6 +21,7 @@ import { askAndInvokeAuthWorkflow, askResourceNameQuestion, askBucketNameQuestio
          permissionMap,
          askUserPoolGroupSelectionUntilPermissionSelected} from './s3-questions';
 import { printErrorAlreadyCreated, printErrorNoResourcesToUpdate } from './s3-errors';
+import { getAllDefaults } from '../default-values/s3-defaults'
 
 
 // keep in sync with ServiceName in amplify-category-function, but probably it will not change
@@ -39,15 +40,13 @@ function buildPolicyID(){
   return shortId;
 }
 
-async function addWalkthrough(context: $TSContext, defaultValuesFilename: string){
-  console.log("SACPCDEBUG:1: defaultValuesFilename: " , defaultValuesFilename );
+async function addWalkthrough( context: $TSContext ){
   const { amplify } = context;
   const { amplifyMeta } = amplify.getProjectDetails();
   console.log("SACPCDEBUG:2: amplifyMeta: " , JSON.stringify(amplifyMeta, null, 2) );
 
   //First ask customers to configure Auth on the S3 resource, invoke auth workflow
   await askAndInvokeAuthWorkflow(context);
-  const defaultValues = loadS3DefaultValues(context, defaultValuesFilename);
   const resourceName = await getS3ResourceName( context , amplifyMeta );
 
   if (resourceName) {
@@ -56,6 +55,7 @@ async function addWalkthrough(context: $TSContext, defaultValuesFilename: string
   } else {
     //Ask S3 walkthrough questions
     const policyID = buildPolicyID(); //prefix/suffix for all resources.
+    const defaultValues = getAllDefaults(amplify.getProjectDetails(), policyID );
     const resourceName = await askResourceNameQuestion(context, defaultValues); //Cannot be changed once added
     const bucketName = await askBucketNameQuestion(context, defaultValues, resourceName); //Cannot be changed once added
     const storageAccess = await askWhoHasAccessQuestion(context, defaultValues); //Auth/Guest/AuthandGuest
@@ -71,23 +71,23 @@ async function addWalkthrough(context: $TSContext, defaultValuesFilename: string
       storageAccess,
       authAccess : authAccess,
       guestAccess : guestAccess,
-      triggerFunction : triggerFunction,
-      groupAccess : undefined,
-      groupList: undefined
+      triggerFunction : (triggerFunction)?triggerFunction:"NONE",
+      groupAccess : {},
+      groupList: []
     }
 
     //Save CLI Inputs payload
     const cliInputsState = new S3InputState(cliInputs.resourceName as string, cliInputs);
-    cliInputsState.saveCliInputPayload();
+    cliInputsState.saveCliInputPayload( cliInputs );
     //Generate Cloudformation
     const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string);
-    stackGenerator.transform();
+    await stackGenerator.transform();
     return cliInputs.resourceName;
   }
 };
 
 
-async function  updateWalkthrough(context: any, defaultValuesFilename: any, serviceMetada: any){
+async function  updateWalkthrough(context: any){
   const { amplify } = context;
   const { amplifyMeta } = amplify.getProjectDetails();
   const resourceName : string| undefined = await getS3ResourceName( context , amplifyMeta );
@@ -101,11 +101,10 @@ async function  updateWalkthrough(context: any, defaultValuesFilename: any, serv
         return;
       }
       //load existing cliInputs
-      const defaultValues = loadS3DefaultValues(context, defaultValuesFilename);
       let cliInputsState = new S3InputState(resourceName, undefined);
       const previousUserInput  = cliInputsState.getUserInput();
       let cliInputs : S3UserInputs= Object.assign({}, previousUserInput); //overwrite this with updated params
-
+      const defaultValues = getAllDefaults(amplify.getProjectDetails(), cliInputs.policyUUID as string);
       //Ask S3 walkthrough questions
       const storageAccess = await askWhoHasAccessQuestion( context, previousUserInput ); //Auth/Guest
       const authAccess = await askAuthPermissionQuestion(context, previousUserInput);
@@ -121,22 +120,13 @@ async function  updateWalkthrough(context: any, defaultValuesFilename: any, serv
       cliInputs.triggerFunction = triggerFunction;
 
       //Save CLI Inputs payload
-      cliInputsState.saveCliInputPayload();
+      cliInputsState.saveCliInputPayload(cliInputs);
       //Generate Cloudformation
       const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string);
       stackGenerator.transform();
       return cliInputs.resourceName;
   }
 };
-
-
-
-function loadS3DefaultValues(context : $TSContext, defaultValuesFilename : string ){
-  const { amplify } = context;
-  const defaultValuesSrc = path.join(__dirname, '..', 'default-values', defaultValuesFilename);
-  const { getAllDefaults } = require(defaultValuesSrc);
-  return getAllDefaults(amplify.getProjectDetails());
-}
 
 async function startAddTriggerFunctionFlow( context: $TSContext, resourceName: string,  policyID : string, existingTriggerFunction : string|undefined):Promise<string|undefined>{
   const { amplify } = context;
@@ -208,7 +198,6 @@ function getS3ResourcesFromAmplifyMeta( amplifyMeta : any ) : Record<string, $TS
 async function getS3ResourceName( context : $TSContext, amplifyMeta: any) : Promise<string|undefined> {
   //Fetch storage resources from Amplify Meta file
   const storageResources : Record<string, $TSAny>| undefined = getS3ResourcesFromAmplifyMeta( amplifyMeta );
-  console.log("ZACKPCDEBUG: StorageResources: ", storageResources );
   if ( storageResources ) {
     if (Object.keys(storageResources).length === 0) {
       return undefined;
@@ -489,33 +478,34 @@ async function configure(context: $TSContext, defaultValuesFilename: string,
 }
 ***/
 
-//Generate CLIInputs.json
-function saveCLIInputsData( options : S3CLIWalkthroughParams ){
-  //create inputManager
-  const props:S3InputStateOptions = S3InputState.cliWalkThroughToCliInputParams(options);
-  const cliInputManager: S3InputState = S3InputState.getInstance( props );
+// //Generate CLIInputs.json
+// function saveCLIInputsData( options : S3CLIWalkthroughParams ){
+//   //create inputManager
+//   const props:S3InputStateOptions = S3InputState.cliWalkThroughToCliInputParams(options);
+//   const cliInputManager: S3InputState = S3InputState.getInstance( props );
+//   const
 
-  //save cliInputs.json
-  cliInputManager.saveCliInputPayload(); //Save input data
-}
+//   //save cliInputs.json
+//   cliInputManager.saveCliInputPayload( ); //Save input data
+// }
 
-async function copyCfnTemplate(context: $TSContext, categoryName: string, resourceName: string, options: S3CLIWalkthroughParams) {
-  const { amplify } = context;
-  const targetDir = amplify.pathManager.getBackendDirPath();
-  const pluginDir = __dirname;
-  saveCLIInputsData( options );
+// async function copyCfnTemplate(context: $TSContext, categoryName: string, resourceName: string, options: S3CLIWalkthroughParams) {
+//   const { amplify } = context;
+//   const targetDir = amplify.pathManager.getBackendDirPath();
+//   const pluginDir = __dirname;
+//   saveCLIInputsData( options );
 
-  const copyJobs = [
-    {
-      dir: pluginDir,
-      template: path.join('..', '..', '..', '..', 'resources', 'cloudformation-templates', templateFileName),
-      target: path.join(targetDir, categoryName, resourceName, 's3-cloudformation-template.json'),
-    },
-  ];
+//   const copyJobs = [
+//     {
+//       dir: pluginDir,
+//       template: path.join('..', '..', '..', '..', 'resources', 'cloudformation-templates', templateFileName),
+//       target: path.join(targetDir, categoryName, resourceName, 's3-cloudformation-template.json'),
+//     },
+//   ];
 
-  // copy over the files
-  return await context.amplify.copyBatch(context, copyJobs, options);
-}
+//   // copy over the files
+//   return await context.amplify.copyBatch(context, copyJobs, options);
+// }
 
 async function updateCfnTemplateWithGroups(context: any, oldGroupList: any, newGroupList: any, newGroupPolicyMap: any, s3ResourceName: any, authResourceName: any) {
   const groupsToBeDeleted = _.difference(oldGroupList, newGroupList);

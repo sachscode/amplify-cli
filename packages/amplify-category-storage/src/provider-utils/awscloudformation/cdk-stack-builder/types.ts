@@ -55,6 +55,11 @@ const getS3PublicPolicy = ( policyId : string ) => `Protected_policy_${policyId}
 const getS3ReadPolicy = ( policyId : string ) => `read_policy_${policyId}`;
 const getS3UploadsPolicy = ( policyId : string ) => `Uploads_policy_${policyId}`;
 
+export type AmplifyCfnParamType = {
+  params : Array<string>
+  paramType : string
+  default? : string
+}
 
 export interface AmplifyS3ResourceInputParameters {
     bucketName? : string,
@@ -99,7 +104,7 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
       try {
         new cdk.CfnOutput(this, logicalId, props);
       } catch (error) {
-        throw new Error(error);
+        throw error;
       }
     }
 
@@ -112,7 +117,7 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
       try {
         new cdk.CfnMapping(this, logicalId, props);
       } catch (error) {
-        throw new Error(error);
+        throw error;
       }
     }
 
@@ -125,7 +130,7 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
       try {
         new cdk.CfnCondition(this, logicalId, props);
       } catch (error) {
-        throw new Error(error);
+        throw error;
       }
     }
     /**
@@ -158,7 +163,7 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
 
     //Generate convert cdk stack to cloudformation
     public renderCloudFormationTemplate = (): string => {
-        return JSON.stringify(this._toCloudFormation(), undefined, 2);
+        return this._toCloudFormation()
     };
 
 }

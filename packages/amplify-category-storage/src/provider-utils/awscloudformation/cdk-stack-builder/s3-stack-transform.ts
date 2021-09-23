@@ -19,7 +19,6 @@ type AmplifyCfnParamType = {
 export class AmplifyS3ResourceStackTransform {
     app: App;
     cliInputs: S3UserInputs;
-    cliMetadata : S3FeatureMetadata;
     _resourceTemplateObj: AmplifyS3ResourceCfnStack | undefined;
     cliInputsState: S3InputState;
     cfn!: string;
@@ -30,19 +29,18 @@ export class AmplifyS3ResourceStackTransform {
         // Validate the cli-inputs.json for the resource
         this.cliInputsState = new S3InputState(resourceName, undefined);
         this.cliInputs = this.cliInputsState.getCliInputPayload();
-        this.cliMetadata = this.cliInputsState.getCliMetadata();
     }
 
     async transform() {
-
-        const validationResult =   await this.cliInputsState.isCLIInputsValid();
-
+        //SACPC!: Validation logic is broken. TBD
+        // const validationResult =   await this.cliInputsState.isCLIInputsValid();
+        // console.log("SACPCDEBUG: TRANSFORM: ValidationResult: ", validationResult);
+        const validationResult = true;
         //Only generate stack if truthsy
         if ( validationResult ) {
             // Generate  cloudformation stack from cli-inputs.json
             await this.generateStack();
 
-            // Generate  cloudformation stack from cli-inputs.json
             this.generateCfnInputParameters();
 
             // Modify cloudformation files based on overrides
@@ -51,7 +49,7 @@ export class AmplifyS3ResourceStackTransform {
             // Save generated cloudformation.json and parameters.json files
             this.saveBuildFiles();
         } else {
-            return new Error("cli-inputs.json has been altered or doesn't match input-schema for the resource");
+            throw new Error("cli-inputs.json has been altered or doesn't match input-schema for the resource");
         }
 
     }
@@ -77,10 +75,13 @@ export class AmplifyS3ResourceStackTransform {
         this._resourceTemplateObj = new AmplifyS3ResourceCfnStack(this.app, 'AmplifyS3ResourceStack', this.cliInputs);
 
         // Add Parameters
-        this._addParameters();
+        this._resourceTemplateObj.addParameters();
+
+        // Add Conditions
+        this._resourceTemplateObj.addConditions();
 
         // Add Outputs
-        this._addOutputs();
+        this._resourceTemplateObj.addOutputs();
 
         /*
         ** Generate Stack Resources for the S3 resource
@@ -94,7 +95,7 @@ export class AmplifyS3ResourceStackTransform {
         this._resourceTemplateObj.generateCfnStackResources();
 
         // Render CFN Template string and store as member in this.cfn
-        this._resourceTemplateObj.renderCloudFormationTemplate();
+        this.cfn = this._resourceTemplateObj.renderCloudFormationTemplate();
     }
 
     _addOutputs(){
@@ -141,25 +142,24 @@ export class AmplifyS3ResourceStackTransform {
 
         s3CfnParams = s3CfnParams.concat( s3CfnDependsOnParams );
         s3CfnParams.map(params => this._setCFNParams(params) )
-
     }
 
     _getDependsOnParameters(){
         let s3CfnDependsOnParams : Array<AmplifyCfnParamType> = []
-        //Add DependsOn Params
-        if ( this.cliMetadata.dependsOn && this.cliMetadata.dependsOn.length > 0 ){
-            const dependsOn : S3CFNDependsOn[] = this.cliMetadata.dependsOn;
-            for ( const dependency of dependsOn ) {
-                for( const attribute of dependency.attributes) {
-                    const dependsOnParam: AmplifyCfnParamType = {
-                        params: [`${dependency.category}${dependency.resourceName}${attribute}`],
-                        paramType : "String",
-                        default: `${dependency.category}${dependency.resourceName}${attribute}`
-                    };
-                    s3CfnDependsOnParams.push(dependsOnParam);
-                }
-            }
-        }
+        // //Add DependsOn Params
+        // if ( this.cliMetadata.dependsOn && this.cliMetadata.dependsOn.length > 0 ){
+        //     const dependsOn : S3CFNDependsOn[] = this.cliMetadata.dependsOn;
+        //     for ( const dependency of dependsOn ) {
+        //         for( const attribute of dependency.attributes) {
+        //             const dependsOnParam: AmplifyCfnParamType = {
+        //                 params: [`${dependency.category}${dependency.resourceName}${attribute}`],
+        //                 paramType : "String",
+        //                 default: `${dependency.category}${dependency.resourceName}${attribute}`
+        //             };
+        //             s3CfnDependsOnParams.push(dependsOnParam);
+        //         }
+        //     }
+        // }
         return s3CfnDependsOnParams;
     }
 
@@ -190,7 +190,7 @@ export class AmplifyS3ResourceStackTransform {
         try {
           JSONUtilities.writeJson(cfnFilePath, data);
         } catch (e) {
-          throw new Error(e);
+          throw e;
         }
     }
 

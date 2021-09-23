@@ -69,8 +69,7 @@ export async function askBucketNameQuestion(context: $TSContext, defaultValues: 
         },
       }),
       default: () => {
-        const defaultValue = defaultValues['bucketName'];
-        return resourceName || defaultValue;
+        return defaultValues['bucketName'];
       },
     },
   ];

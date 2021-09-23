@@ -87,7 +87,6 @@ export type S3InputStateOptions = {
 export class S3InputState {
   static s3InputState: S3InputState;
   _cliInputsFilePath: string; //cli-inputs.json (output) filepath
-  _cliMetadataFilePath: string; //amplify-meta.json (private input state) filepath
   _resourceName: string; //user friendly name provided by user
   _category: string; //category of the resource
   _service: string; //AWS service for the resource
@@ -99,7 +98,6 @@ export class S3InputState {
     this._category = AmplifyCategories.STORAGE;
     this._service = AmplifySupportedService.S3;
     this._cliInputsFilePath = path.resolve(path.join(projectBackendDirPath, AmplifyCategories.STORAGE, resourceName, 'cli-inputs.json'));
-    this._cliMetadataFilePath = path.resolve(path.join(projectBackendDirPath, AmplifyCategories.STORAGE, resourceName, 'amplify-meta.json'));
     this._resourceName = resourceName;
     this.buildFilePath = path.resolve(path.join(projectBackendDirPath, AmplifyCategories.STORAGE, resourceName, 'build'));
     if ( userInput ){
@@ -137,6 +135,7 @@ export class S3InputState {
       cliInputs = this.getCliInputPayload();
     }
     const schemaValidator = new CLIInputSchemaValidator(this._service, this._category, "S3UserInputs" );
+    console.log("SACPCDEBUG: Validating CLI-Inputs: ", JSON.stringify(cliInputs, null, 2));
     return await schemaValidator.validateInput(JSON.stringify(cliInputs));
   }
 
@@ -262,26 +261,21 @@ public getCliInputPayload(): S3UserInputs {
     return cliInputs;
 }
 
-public getCliMetadata() : S3FeatureMetadata {
-    //fetch amplify-metadata
-    let cliMetadata: S3FeatureMetadata;
-    //fetch dependsOn for storage
-    try {
-      cliMetadata = JSON.parse(fs.readFileSync(this._cliMetadataFilePath, 'utf8'));
-    } catch (e) {
-        throw new Error('migrate project with command : amplify migrate <to be decided>');
-    }
-    return cliMetadata;
+public getCliMetadata() : S3FeatureMetadata|undefined {
+  return undefined;
 }
 
-public saveCliInputPayload(): void {
-    const backend = pathManager.getBackendDirPath();
-    fs.ensureDirSync(path.join(pathManager.getBackendDirPath(), this._category, this._resourceName));
-    try {
-      JSONUtilities.writeJson(this._cliInputsFilePath, this._inputPayload);
-    } catch (e) {
-      throw new Error(e as string);
-    }
+public saveCliInputPayload(cliInputs: S3UserInputs): void {
+  this.isCLIInputsValid(cliInputs);
+  this._inputPayload = cliInputs;
+
+  fs.ensureDirSync(path.join(pathManager.getBackendDirPath(), this._category, this._resourceName));
+
+  try {
+    JSONUtilities.writeJson(this._cliInputsFilePath, cliInputs);
+  } catch (e) {
+    throw e;
   }
 }
 
+}
