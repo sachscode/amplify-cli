@@ -3,17 +3,21 @@
 import * as cdk from '@aws-cdk/core';
 import * as s3Cdk from '@aws-cdk/aws-s3';
 import * as iamCdk from '@aws-cdk/aws-iam';
+import * as lambdaCdk from '@aws-cdk/aws-lambda';
+
 
 import {AmplifyResourceCfnStack, AmplifyS3ResourceTemplate, AmplifyCfnParamType} from './types';
 import { S3UserInputs, defaultS3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
-import { $TSObject } from 'amplify-cli-core';
+import { $TSAny, $TSObject } from 'amplify-cli-core';
 import { HttpMethods } from '@aws-cdk/aws-s3';
+import { isResolvableObject } from '@aws-cdk/core';
 
 
 export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implements AmplifyS3ResourceTemplate {
     id: string;
     scope  : cdk.Construct;
     s3Bucket!: s3Cdk.CfnBucket;
+    triggerLambdaPermissions?: lambdaCdk.CfnPermission;
     authIAMPolicy !: iamCdk.PolicyDocument;
     guestIAMPolicy !: iamCdk.PolicyDocument;
     groupIAMPolicy !: iamCdk.PolicyDocument;
@@ -47,13 +51,14 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             bucketName : this.buildBucketName(),
             corsConfiguration : this.buildCORSRules(),
         });
-
+        this.s3Bucket.applyRemovalPolicy( cdk.RemovalPolicy.RETAIN );
         console.log("SACPCDEBUG: BUCKET-CREATED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
         //2. Configure Notifications on the S3 bucket. [Optional]
         if ( this._props.triggerFunction && this._props.triggerFunction != "NONE" ){
             console.log("SACPCDEBUG: FUNCTION-CONFIGURED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             this.s3Bucket.notificationConfiguration = this.buildNotificationConfiguration();
+            this.createAndSetTriggerPermissions();
         }
 
         //3. Create IAM policies to control Cognito pool access to S3 bucket
@@ -78,8 +83,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     public addParameters(){
         let s3CfnParams : Array<AmplifyCfnParamType> = [
             {
-                params : ["env", "bucketName" ,"authPolicyName", "unauthPolicyName",
-                          "authRoleName", "unauthRoleName", "triggerFunction"],
+                params : ["env", "bucketName","authRoleName", "unauthRoleName"],
                 paramType : 'String'
             },
             {
@@ -96,12 +100,16 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                 paramType: 'String',
                 default: 'Disallow'
             },
-            {
-                params: ["selectedGuestPermissions" , "selectedAuthenticatedPermissions"],
-                paramType: 'CommaDelimitedList',
-                default: 'None'
-            },
         ];
+        if ( this._props.triggerFunction && this._props.triggerFunction != "NONE" ){
+            s3CfnParams.push({
+                params: [ `function${this._props.triggerFunction}Arn`,
+                          `function${this._props.triggerFunction}Name`,
+                          `function${this._props.triggerFunction}LambdaExecutionRole`],
+                paramType: 'String',
+                default: 'None'
+            });
+        }
 
         let s3CfnDependsOnParams : Array<AmplifyCfnParamType> = this._getDependsOnParameters()
 
@@ -115,38 +123,38 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     public addConditions(){
         this.conditions =  {
             ShouldNotCreateEnvResources : new cdk.CfnCondition(this, 'ShouldNotCreateEnvResources', {
-                                                                        expression: cdk.Fn.conditionEquals(cdk.Fn.ref("Env"), "NONE"),
+                                                                        expression: cdk.Fn.conditionEquals(cdk.Fn.ref("env"), "NONE"),
                                                                         }),
             CreateAuthPublic : new cdk.CfnCondition(this, 'CreateAuthPublic', {
                                                                         expression: cdk.Fn.conditionNot(
                                                                                     cdk.Fn.conditionEquals(cdk.Fn.ref("s3PermissionsAuthenticatedPublic"), "DISALLOW")
                                                                                 ),
                                                                         }),
-            CreateAuthProtectedCondition : new cdk.CfnCondition(this, 'CreateAuthProtected', {
+            CreateAuthProtected : new cdk.CfnCondition(this, 'CreateAuthProtected', {
                 expression: cdk.Fn.conditionNot(
                             cdk.Fn.conditionEquals(cdk.Fn.ref("s3PermissionsAuthenticatedProtected"), "DISALLOW")
                         ),
             }),
 
-            CreateAuthPrivateCondition : new cdk.CfnCondition(this, 'CreateAuthPrivate', {
+            CreateAuthPrivate : new cdk.CfnCondition(this, 'CreateAuthPrivate', {
             expression: cdk.Fn.conditionNot(
                         cdk.Fn.conditionEquals(cdk.Fn.ref("s3PermissionsAuthenticatedPrivate"), "DISALLOW")
                     ),
             }),
 
-            CreateAuthUploadsCondition : new cdk.CfnCondition(this, 'CreateAuthUploads', {
+            CreateAuthUploads : new cdk.CfnCondition(this, 'CreateAuthUploads', {
             expression: cdk.Fn.conditionNot(
                         cdk.Fn.conditionEquals(cdk.Fn.ref("s3PermissionsAuthenticatedUploads"), "DISALLOW")
                     ),
             }),
 
-            CreateGuestPublicCondition : new cdk.CfnCondition(this, 'CreateGuestPublic', {
+            CreateGuestPublic : new cdk.CfnCondition(this, 'CreateGuestPublic', {
             expression: cdk.Fn.conditionNot(
                         cdk.Fn.conditionEquals(cdk.Fn.ref("s3PermissionsGuestPublic"), "DISALLOW")
                     ),
             }),
 
-            CreateGuestUploadsCondition : new cdk.CfnCondition(this, 'CreateGuestUploads', {
+            CreateGuestUploads : new cdk.CfnCondition(this, 'CreateGuestUploads', {
             expression: cdk.Fn.conditionNot(
                         cdk.Fn.conditionEquals(cdk.Fn.ref("s3PermissionsGuestUploads"), "DISALLOW")
                     ),
@@ -158,11 +166,12 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     ),
             }),
 
-            CreateReadAndList : new cdk.CfnCondition(this, 'GuestReadAndList', {
+            CreateGuestReadAndList : new cdk.CfnCondition(this, 'GuestReadAndList', {
             expression: cdk.Fn.conditionNot(
                         cdk.Fn.conditionEquals(cdk.Fn.ref("GuestAllowList"), "DISALLOW")
                     ),
             })
+
         }
 
         return this.conditions;
@@ -215,20 +224,23 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         return corsConfig;
     }
 
-    buildNotificationConfiguration(): s3Cdk.CfnBucket.NotificationConfigurationProperty{
-        const triggerFunctionRef = cdk.Fn.ref(`function${this._props.triggerFunction}Arn`);
+    buildNotificationConfiguration(): s3Cdk.CfnBucket.NotificationConfigurationProperty    {
+        const triggerFunctionArnRef = cdk.Fn.ref(`function${this._props.triggerFunction}Arn`);
+
         const lambdaConfigurations = [{
             event : "s3:ObjectCreated:*",
-            function : triggerFunctionRef
+            function : triggerFunctionArnRef,
         },
         {
             event: "s3:ObjectRemoved:*",
-            function : triggerFunctionRef
+            function : triggerFunctionArnRef
         }];
 
-        return {
+        let notificationConfig : $TSAny = {
             lambdaConfigurations
-        };
+        }
+
+        return notificationConfig as s3Cdk.CfnBucket.NotificationConfigurationProperty
     }
 
     createAndSetIAMPolicies(){
@@ -248,6 +260,9 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         this.s3AuthReadPolicy = this.createS3AuthReadPolicy();
         console.log("SACPCDEBUG:createS3GuestReadPolicy: Calling GuestReadPolicy : ");
         this.s3GuestReadPolicy = this.createS3GuestReadPolicy();
+    }
+    createAndSetTriggerPermissions(){
+        this.triggerLambdaPermissions = this.createInvokeFunctionS3Permission();
     }
 
     createS3IAMPolicyDocument( refStr: string, pathStr:string,  actionStr: string, effect: iamCdk.Effect ){
@@ -286,6 +301,33 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     }
 
     /***************************************************************************************************
+     *  Lambda Trigger Permissions : Allow S3 to invoke the trigger function
+     ***************************************************************************************************/
+    createInvokeFunctionS3Permission( ) :lambdaCdk.CfnPermission{
+        const logicalId = "TriggerPermissions";
+        const bucketRef = cdk.Fn.ref("bucketName");
+        const envSpecificBucketRef =  cdk.Fn.join( "",
+                                                    [cdk.Fn.ref("bucketName"),
+                                                    "-",
+                                                    cdk.Fn.ref("env")])
+        const sourceArn = cdk.Fn.join( "",
+                                        [ "arn:aws:s3:::",
+                                        cdk.Fn.conditionIf( 'ShouldNotCreateEnvResources',
+                                                            bucketRef,
+                                                            envSpecificBucketRef
+                                                            ).toString()])
+        let resourceDefinition : lambdaCdk.CfnPermissionProps = {
+                action : "lambda:InvokeFunction",
+                functionName : cdk.Fn.ref(`function${this._props.triggerFunction}Name`),
+                principal:"s3.amazonaws.com",
+                sourceAccount : cdk.Fn.ref("AWS::AccountId"),
+                sourceArn
+        }
+        const lambdaPermission = new lambdaCdk.CfnPermission( this, logicalId, resourceDefinition);
+        return lambdaPermission;
+    }
+
+    /***************************************************************************************************
      *  IAM Policies - Control Auth and Guest access to S3 bucket using Cognito Identity Pool
      *
      * Note :- Currently S3 doesn't have direct integration with Cognito for access control to S3 bucket.
@@ -307,7 +349,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect  : iamCdk.Effect.ALLOW
                 }
             ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ] - Not required since refStr implicitly adds this
         }
         const policy = this.createIAMPolicy(policyDefinition);
         return policy;
@@ -328,7 +370,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect  : iamCdk.Effect.ALLOW
                 }
             ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ]- Not required since refStr implicitly adds this
         }
         const policy = this.createIAMPolicy(policyDefinition);
         return policy;
@@ -349,7 +391,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect  : iamCdk.Effect.ALLOW
                 }
             ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ]- Not required since refStr implicitly adds this
         }
         const policy = this.createIAMPolicy(policyDefinition);
         return policy;
@@ -370,7 +412,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect  : iamCdk.Effect.ALLOW
                 }
             ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ]- Not required since refStr implicitly adds this
         }
         const policy = this.createIAMPolicy(policyDefinition);
         return policy;
@@ -391,7 +433,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect  : iamCdk.Effect.ALLOW
                 }
             ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ]- Not required since refStr implicitly adds this
         }
         const policy = this.createIAMPolicy(policyDefinition);
         return policy;
@@ -412,7 +454,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect  : iamCdk.Effect.ALLOW
                 }
             ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ]- Not required since refStr implicitly adds this
         }
         const policy = this.createIAMPolicy(policyDefinition);
         return policy;
@@ -424,7 +466,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             logicalId : "S3AuthReadPolicy",
             policyNameRef : "s3ReadPolicy",
             roleRefs : ["authRoleName"],
-            condition : this.conditions.AuthReadAndList,
+            condition : this.conditions.CreateAuthReadAndList,
             statements : [
                             {
                                 refStr  : "S3Bucket",
@@ -450,7 +492,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                                 effect  : iamCdk.Effect.ALLOW
                             }
                         ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ]- Not required since refStr implicitly adds this
         }
 
         const policy:iamCdk.CfnPolicy = this.createMultiStatementIAMPolicy(policyDefinition);
@@ -463,7 +505,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             logicalId : "S3GuestReadPolicy",
             policyNameRef : "s3ReadPolicy",
             roleRefs : ["unauthRoleName"],
-            condition: this.conditions.CreateGuestPublic,
+            condition: this.conditions.CreateGuestReadAndList,
             statements : [
                 {
                     refStr  : "S3Bucket",
@@ -487,7 +529,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect  : iamCdk.Effect.ALLOW
                 }
             ],
-            dependsOn : [ this.s3Bucket ]
+            //dependsOn : [ this.s3Bucket ]- Not required since refStr implicitly adds this
         }
         const policy:iamCdk.CfnPolicy = this.createMultiStatementIAMPolicy(policyDefinition);
         return policy;
@@ -497,12 +539,14 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     createTriggerPolicy():iamCdk.CfnPolicy {
         let policyDefinition: IAmplifyPolicyDefinition = {
             logicalId : "S3TriggerBucketPolicy",
+            isPolicyNameAbsolute : true, // set if policyName is not a reference
             policyNameRef : "amplify-lambda-execution-policy-storage",
             roleRefs : [`function${this._props.triggerFunction}LambdaExecutionRole`],
             statements : [
                 {
                     refStr  : "S3Bucket",
                     pathStr : "/*",
+                    isActionAbsolute : true, //actions are not refs
                     actions : [ "s3:PutObject",
                                 "s3:GetObject",
                                 "s3:ListBucket",
@@ -517,30 +561,71 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     }
 
     //Helper:: function to create single statement IAM policy & bind to the App's stack
-    createIAMPolicy(policyDefinition : IAmplifyPolicyDefinition){
-        const statement:IAmplifyIamPolicyStatementParams = policyDefinition.statements[0];
-        const action = (statement.actions)? statement.actions[0]:""
-        console.log("SACPCDEBUG: CREATE_IAM_POLICY: action: ", action,
-                    "policyNameRef: ", policyDefinition.policyNameRef);
-        const props : iamCdk.CfnPolicyProps = {
-            policyName : cdk.Fn.ref(policyDefinition.policyNameRef),
-            roles : policyDefinition.roleRefs.map( roleRef=> cdk.Fn.ref( roleRef )),
-            policyDocument : this.createS3IAMPolicyDocument( statement.refStr,
-                                                        statement.pathStr as string,
-                                                        action,
-                                                        statement.effect)
+    createIAMPolicy(policyDefinition : IAmplifyPolicyDefinition):iamCdk.CfnPolicy{
+        let policyL1 : $TSObject = {};
+        //Policy Properties
+        policyL1.Properties = {};
+            //1. Property: PolicyName
+            if (policyDefinition.isPolicyNameAbsolute){
+                policyL1.Properties.policyName = policyDefinition.policyNameRef;
+            } else {
+                policyL1.Properties.policyName = {
+                    "Ref" : policyDefinition.policyNameRef
+                }
+            }
+            //2. Property: Roles
+            policyL1.Properties.roles = policyDefinition.roleRefs.map( roleRef=> ({
+                                                                    "Ref" : roleRef
+                                       }));
+            //3. Property: PolicyDocument
+            policyL1.Properties.policyDocument = {
+                "Version": "2012-10-17",
+                "Statement": {}
+            }
+            //3.1.1 Property: PolicyDocument.Statement.Action
+            if (policyDefinition.statements[0].actions){
+                policyL1.Properties.policyDocument.Statement.Effect = policyDefinition.statements[0].effect;
+                if (policyDefinition.statements[0].isActionAbsolute){
+                    policyL1.Properties.policyDocument.Statement.Action =
+                    policyDefinition.statements[0].actions
+                } else {
+                    policyL1.Properties.policyDocument.Statement.Action =
+                    policyDefinition.statements[0].actions.map(action => (
+                        {
+                            "Fn::Split" : [ "," , {
+                                "Ref": action
+                            } ]
+                        }
+                    ))
+                }
+            }
+            //3.1.2 Property: PolicyDocument.Statement.Resource
+            policyL1.Properties.policyDocument.Statement.Resource = [
+                {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "arn:aws:s3:::",
+                            {
+                                "Ref": policyDefinition.statements[0].refStr
+                            },
+                            policyDefinition.statements[0].pathStr
+                        ]
+                    ]
+                }
+            ]
 
-        };
-
-        const policy = new iamCdk.CfnPolicy(this, policyDefinition.logicalId , props); //bind policy to stack
+        const policy = new iamCdk.CfnPolicy(this, policyDefinition.logicalId, policyL1["Properties"])
         if ( policyDefinition.dependsOn ){
             policyDefinition.dependsOn.map( dependency => policy.addDependsOn( dependency ))
         }
         if ( policyDefinition.condition ){
             policy.cfnOptions.condition = policyDefinition.condition
         }
+
         return policy;
     }
+
 
     //Helper:: function to create multi-statement IAM policy & bind to the App's stack
     createMultiStatementIAMPolicy(policyDefinition : IAmplifyPolicyDefinition) {
@@ -654,12 +739,14 @@ interface IAmplifyIamPolicyStatementParams {
     refStr   : string,
     conditions? : $TSObject,
     pathStr? : string,
+    isActionAbsolute?: boolean,
     actions? : Array<string>,
     effect   : iamCdk.Effect
 }
 
 interface IAmplifyPolicyDefinition {
     logicalId : string,
+    isPolicyNameAbsolute? : boolean,
     policyNameRef : string,
     roleRefs : Array<string>,
     condition? : cdk.CfnCondition,

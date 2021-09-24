@@ -138,9 +138,9 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
      * @param props
      * @param logicalId
      */
-    addCfnResource(props: cdk.CfnResourceProps, logicalId: string): void {
+    addCfnResource(props: cdk.CfnResourceProps, logicalId: string): cdk.CfnResource {
       try {
-        new cdk.CfnResource(this, logicalId, props);
+        return new cdk.CfnResource(this, logicalId, props);
       } catch (error) {
         throw new Error(error);
       }
