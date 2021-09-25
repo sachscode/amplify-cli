@@ -191,11 +191,14 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     }
 
     buildBucketName(){
-        return cdk.Fn.conditionIf(
+       const bucketNameSuffixRef = cdk.Fn.select(3, cdk.Fn.split("-", cdk.Fn.ref("AWS::StackName")));
+       const bucketRef = cdk.Fn.ref('bucketName');
+       const envRef = cdk.Fn.ref("env");
+       return cdk.Fn.conditionIf(
             'ShouldNotCreateEnvResources',
-            cdk.Fn.ref('bucketName'),
-            cdk.Fn.join('', [cdk.Fn.ref('bucketName'), '-', cdk.Fn.ref('env')]),
-          ).toString()
+            bucketRef,
+            cdk.Fn.join( "",[bucketRef, bucketNameSuffixRef, "-", envRef])
+        ).toString()
     }
 
     buildCORSRules(): s3Cdk.CfnBucket.CorsConfigurationProperty{
@@ -305,17 +308,8 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
      ***************************************************************************************************/
     createInvokeFunctionS3Permission( ) :lambdaCdk.CfnPermission{
         const logicalId = "TriggerPermissions";
-        const bucketRef = cdk.Fn.ref("bucketName");
-        const envSpecificBucketRef =  cdk.Fn.join( "",
-                                                    [cdk.Fn.ref("bucketName"),
-                                                    "-",
-                                                    cdk.Fn.ref("env")])
-        const sourceArn = cdk.Fn.join( "",
-                                        [ "arn:aws:s3:::",
-                                        cdk.Fn.conditionIf( 'ShouldNotCreateEnvResources',
-                                                            bucketRef,
-                                                            envSpecificBucketRef
-                                                            ).toString()])
+        const sourceArn = cdk.Fn.join( "", [ "arn:aws:s3:::", this.buildBucketName()])
+
         let resourceDefinition : lambdaCdk.CfnPermissionProps = {
                 action : "lambda:InvokeFunction",
                 functionName : cdk.Fn.ref(`function${this._props.triggerFunction}Name`),
