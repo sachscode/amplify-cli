@@ -102,13 +102,17 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             },
         ];
         if ( this._props.triggerFunction && this._props.triggerFunction != "NONE" ){
-            s3CfnParams.push({
-                params: [ `function${this._props.triggerFunction}Arn`,
-                          `function${this._props.triggerFunction}Name`,
-                          `function${this._props.triggerFunction}LambdaExecutionRole`],
-                paramType: 'String',
-                default: 'None'
-            });
+            const params = [`function${this._props.triggerFunction}Arn`,
+                            `function${this._props.triggerFunction}Name`,
+                            `function${this._props.triggerFunction}LambdaExecutionRole`]
+            params.map( param=> {
+                            s3CfnParams.push(
+                                {
+                                    params : [param],
+                                    paramType: 'String',
+                                    default : param
+                                } )
+                        } );
         }
 
         let s3CfnDependsOnParams : Array<AmplifyCfnParamType> = this._getDependsOnParameters()
