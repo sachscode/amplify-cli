@@ -2,9 +2,10 @@ import * as inquirer from 'inquirer';
 import { ResourceDoesNotExistError, ResourceAlreadyExistsError, exitOnNextTick, $TSAny, $TSContext } from 'amplify-cli-core';
 import { printer } from 'amplify-prompts';
 import _ from 'lodash';
-import { S3AccessType, S3PermissionType } from '../service-walkthrough-types/s3-user-input-types';
-import { checkIfAuthExists, addTrigger, S3CLITriggerUpdateMenuOptions, S3CLICognitoUserRole } from './s3-walkthrough';
+import { getRoleAccessDefaultValues, S3AccessType, S3PermissionType, S3UserAccessRole, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
+import { checkIfAuthExists, addTrigger, S3CLITriggerUpdateMenuOptions } from './s3-walkthrough';
 import { S3PermissionMapType } from './s3-user-input-state';
+import { objectToCloudFormation } from '@aws-cdk/core';
 
 export const permissionMap : S3PermissionMapType = {
     'create/update': [S3PermissionType.CREATE],
@@ -12,7 +13,23 @@ export const permissionMap : S3PermissionMapType = {
     delete: [S3PermissionType.DELETE],
   };
 
-export const possibleCRUDOperations = Object.keys(permissionMap).map(el => ({ name: el, value: el }));
+export function normalizePermissionsMapValue( permissionValue : Array<S3PermissionType>){
+    if ( permissionValue.includes(S3PermissionType.READ) ){
+      return S3PermissionType.READ;
+    } else {
+      return permissionValue[0];
+    }
+}
+export function denormalizePermissions( permissionValue : Array<S3PermissionType> ){
+  console.log("SACPCDEBUG: DENORMALIZATION : ", permissionValue );
+  if ( permissionValue.includes(S3PermissionType.READ) ){
+    permissionValue.push(S3PermissionType.LIST);
+  }
+  return permissionValue;
+}
+
+export const possibleCRUDOperations = Object.keys(permissionMap).map(el => ({ name: el,
+                                                                              value: normalizePermissionsMapValue(permissionMap[el]) }));
 
 export async function askAndInvokeAuthWorkflow(context: $TSContext){
     while (!checkIfAuthExists(context)) {
@@ -54,7 +71,7 @@ export async function askResourceNameQuestion(context: $TSContext, defaultValues
   return (answer as any).resourceName;
 }
 
-export async function askBucketNameQuestion(context: $TSContext, defaultValues: any, resourceName : string): Promise<string> {
+export async function askBucketNameQuestion(context: $TSContext, defaultValues: S3UserInputs, resourceName : string): Promise<string> {
   const { amplify } = context;
   const question = [
     {
@@ -78,8 +95,7 @@ export async function askBucketNameQuestion(context: $TSContext, defaultValues: 
   ;
 }
 
-export async function askWhoHasAccessQuestion( context: $TSContext, defaultValues: any ): Promise<S3AccessType>{
-  const { amplify } = context;
+export async function askWhoHasAccessQuestion( context: $TSContext, defaultValues: S3UserInputs ): Promise<S3AccessType>{
   const question = [{
     type: 'list',
     name: 'storageAccess',
@@ -100,13 +116,17 @@ export async function askWhoHasAccessQuestion( context: $TSContext, defaultValue
   return (answer as any).storageAccess as S3AccessType;
 }
 
-export async function askCRUDQuestion( role: string, context: $TSContext, defaultValues: any): Promise<Array<S3PermissionType>>{
+
+
+export async function askCRUDQuestion( role: S3UserAccessRole, context: $TSContext, defaultValues: S3UserInputs): Promise<Array<S3PermissionType>>{
+  const roleDefaultValues = getRoleAccessDefaultValues(role, defaultValues);
+  console.log("SACPCDEBUG: Ask CRUD Question: defaultValues: ",possibleCRUDOperations, " default: ", roleDefaultValues );
   const question = [{
     name: 'permissions',
     type: 'checkbox',
     message: `What kind of access do you want for ${role} users?`,
     choices: possibleCRUDOperations,
-    default: defaultValues,
+    default: roleDefaultValues,
     validate: (inputs : any[]) => {
       if (inputs.length === 0) {
         return 'Select at least one option';
@@ -114,8 +134,8 @@ export async function askCRUDQuestion( role: string, context: $TSContext, defaul
       return true;
     }}];
   const answers = await inquirer.prompt(question); //multi-select checkbox
-  printer.debug(`SACPCDEBUG: askCRUDQuestion: ${JSON.stringify(answers)}` )
-  const results: S3PermissionType[] =  _.uniq(_.flatten((answers.permissions as string[]).map( (selectedPermission ) => permissionMap[selectedPermission] )))
+  const results: S3PermissionType[] = denormalizePermissions(answers.permissions as Array<S3PermissionType>);
+  console.log(`SACPCDEBUG: askCRUDQuestion: ${JSON.stringify(results)}` )
   return results;
 }
 
@@ -153,14 +173,21 @@ export async function askUserPoolGroupPermissionSelectionQuestion() : Promise<st
   return result;
 }
 
-export async function askUpdateTriggerSelection(): Promise<S3CLITriggerUpdateMenuOptions>{
-  const triggerOperationQuestion = [{
+export async function askUpdateTriggerSelection( currentTriggerFunction : string|undefined = undefined ): Promise<S3CLITriggerUpdateMenuOptions>{
+  let choices = [];
+  if (currentTriggerFunction === undefined ){
+    choices = [S3CLITriggerUpdateMenuOptions.ADD,
+               S3CLITriggerUpdateMenuOptions.SKIP]
+  } else {
+    choices = [S3CLITriggerUpdateMenuOptions.UPDATE,
+               S3CLITriggerUpdateMenuOptions.REMOVE,
+               S3CLITriggerUpdateMenuOptions.SKIP]
+  }
+   const triggerOperationQuestion = [{
     type: 'list',
     name: 'triggerOperation',
     message: 'Select from the following options',
-    choices: [S3CLITriggerUpdateMenuOptions.UPDATE,
-              S3CLITriggerUpdateMenuOptions.REMOVE,
-              S3CLITriggerUpdateMenuOptions.SKIP],
+    choices,
     default : S3CLITriggerUpdateMenuOptions.SKIP
   }];
   const triggerOperationAnswer = await inquirer.prompt(triggerOperationQuestion);
@@ -168,14 +195,14 @@ export async function askUpdateTriggerSelection(): Promise<S3CLITriggerUpdateMen
 }
 
 export async function askAuthPermissionQuestion( context : $TSContext ,
-  defaultValues : any ){
-  const permissions: S3PermissionType[] = await askCRUDQuestion( S3CLICognitoUserRole.AUTH, context, defaultValues );
+                                                  defaultValues : S3UserInputs ){
+  const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.AUTH, context, defaultValues );
   return permissions;
 }
 
 export async function conditionallyAskGuestPermissionQuestion( storageAccess : S3AccessType, context : $TSContext, defaultValues : any):Promise<S3PermissionType[]>{
   if (storageAccess === S3AccessType.AUTH_AND_GUEST) {
-    const permissions: S3PermissionType[] = await askCRUDQuestion( S3CLICognitoUserRole.GUEST, context, defaultValues );
+    const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.GUEST, context, defaultValues );
     return permissions;
   } else {
     return [];
@@ -184,7 +211,7 @@ export async function conditionallyAskGuestPermissionQuestion( storageAccess : S
 
 export async function askGroupPermissionQuestion( context : $TSContext ,
   defaultValues : any ){
-  const permissions: S3PermissionType[] = await askCRUDQuestion( S3CLICognitoUserRole.GROUP, context, defaultValues );
+  const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.GROUP, context, defaultValues );
   return permissions;
 }
 

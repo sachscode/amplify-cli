@@ -10,7 +10,7 @@ import { S3CFNPermissionMapType, S3CLIWalkthroughParams, S3InputState, S3InputSt
 import { pathManager } from 'amplify-cli-core';
 import { AmplifyS3ResourceInputParameters } from '../cdk-stack-builder/types';
 import { S3ResourceParameters } from '../import/types';
-import { S3AccessType, S3UserInputs, S3TriggerFunctionType, S3PermissionType } from '../service-walkthrough-types/s3-user-input-types';
+import { S3AccessType, S3UserAccessRole, S3UserInputs, S3TriggerFunctionType, S3PermissionType } from '../service-walkthrough-types/s3-user-input-types';
 import { AmplifyS3ResourceStackTransform } from  '../cdk-stack-builder/s3-stack-transform'
 import { askAndInvokeAuthWorkflow, askResourceNameQuestion, askBucketNameQuestion,
          askWhoHasAccessQuestion, askCRUDQuestion, askUserPoolGroupPermissionSelectionQuestion,
@@ -35,7 +35,7 @@ const category = AmplifyCategories.STORAGE;
 // map of s3 actions corresponding to CRUD verbs
 // 'create/update' have been consolidated since s3 only has put concept
 
-function buildPolicyID(){
+function buildShortUUID(){
   const [shortId] = uuid().split('-');
   return shortId;
 }
@@ -54,7 +54,7 @@ async function addWalkthrough( context: $TSContext ){
     exitOnNextTick(0);
   } else {
     //Ask S3 walkthrough questions
-    const policyID = buildPolicyID(); //prefix/suffix for all resources.
+    const policyID = buildShortUUID(); //prefix/suffix for all resources.
     const defaultValues = getAllDefaults(amplify.getProjectDetails(), policyID );
     const resourceName = await askResourceNameQuestion(context, defaultValues); //Cannot be changed once added
     const bucketName = await askBucketNameQuestion(context, defaultValues, resourceName); //Cannot be changed once added
@@ -105,19 +105,23 @@ async function  updateWalkthrough(context: any){
       const previousUserInput  = cliInputsState.getUserInput();
       let cliInputs : S3UserInputs= Object.assign({}, previousUserInput); //overwrite this with updated params
       const defaultValues = getAllDefaults(amplify.getProjectDetails(), cliInputs.policyUUID as string);
+      console.log("SACPCDEBUG:Update DEBUG : Previous CLIInputs: ", JSON.stringify(cliInputs, null, 2) );
+
       //Ask S3 walkthrough questions
       const storageAccess = await askWhoHasAccessQuestion( context, previousUserInput ); //Auth/Guest
       const authAccess = await askAuthPermissionQuestion(context, previousUserInput);
       const guestAccess = await conditionallyAskGuestPermissionQuestion( storageAccess, context, previousUserInput);
       const triggerFunction = await  startUpdateTriggerFunctionFlow( context, resourceName,
                                                                      previousUserInput.policyUUID as string,
-                                                                     previousUserInput.triggerFunction );
+                                                                     previousUserInput.triggerFunction ) ;
 
       //Build userInputs for S3 resources
       cliInputs.storageAccess = storageAccess;
       cliInputs.authAccess = authAccess;
       cliInputs.guestAccess = guestAccess;
       cliInputs.triggerFunction = triggerFunction;
+
+      console.log("SACPCDEBUG:Update DEBUG : NEW CLIInputs: ", JSON.stringify(cliInputs, null, 2) );
 
       //Save CLI Inputs payload
       cliInputsState.saveCliInputPayload(cliInputs);
@@ -144,14 +148,14 @@ async function startAddTriggerFunctionFlow( context: $TSContext, resourceName: s
 }
 
 async function startUpdateTriggerFunctionFlow( context: $TSContext, resourceName: string, policyID: string, existingTriggerFunction : string | undefined):Promise<string|undefined>{
-  const { amplify } = context;
   let triggerFunction = existingTriggerFunction;
 
   //Update Trigger Flow
   let continueWithTriggerOperationQuestion = true;
   do {
-      const triggerOperationAnswer = await askUpdateTriggerSelection();
+      const triggerOperationAnswer = await askUpdateTriggerSelection(existingTriggerFunction);
       switch (triggerOperationAnswer) {
+          case S3CLITriggerUpdateMenuOptions.ADD:
           case S3CLITriggerUpdateMenuOptions.UPDATE: {
             try {
               triggerFunction = await addTrigger( S3CLITriggerFlow.UPDATE, context, resourceName, policyID, existingTriggerFunction );
@@ -163,7 +167,8 @@ async function startUpdateTriggerFunctionFlow( context: $TSContext, resourceName
             break;
           }
           case S3CLITriggerUpdateMenuOptions.REMOVE: {
-            await removeTrigger(context, resourceName, triggerFunction);
+            //await removeTrigger(context, resourceName, triggerFunction);
+            triggerFunction = undefined; //cli inputs should not have function
             continueWithTriggerOperationQuestion = false;
             break;
           }
@@ -744,14 +749,15 @@ function exportFunctionExecutionRoleInCFN( context: $TSContext, functionName: st
     }
 }
 //Has to Stay
-async function createNewLambdaAndUpdateCFN( context: $TSContext, policyUUID : string ) : Promise<string>{
+async function createNewLambdaAndUpdateCFN( context: $TSContext, _policyUUID : string ) : Promise<string>{
     const targetDir = context.amplify.pathManager.getBackendDirPath();
-    const newFunctionName = `S3Trigger${policyUUID}`;
+    const newShortUUID = buildShortUUID();
+    const newFunctionName = `S3Trigger${newShortUUID}`;
     const pluginDir = __dirname;
 
     const defaults = {
       functionName: `${newFunctionName}`,
-      roleName: `${newFunctionName}LambdaRole${policyUUID}`,
+      roleName: `${newFunctionName}LambdaRole${newShortUUID}`,
     };
 
     const copyJobs = [
@@ -794,12 +800,15 @@ async function createNewLambdaAndUpdateCFN( context: $TSContext, policyUUID : st
     return newFunctionName;
 }
 
-async function getExistingFunctionsForTrigger( context: $TSContext, excludeFunctionName: string | undefined ) : Promise<Array<string>>{
+async function getExistingFunctionsForTrigger( context: $TSContext,
+                                               excludeFunctionName: string | undefined ,
+                                               isInteractive: boolean) : Promise<Array<string>>{
   let lambdaResourceNames : Array<string> = await getLambdaFunctions(context);
   if (excludeFunctionName) {
     lambdaResourceNames = lambdaResourceNames.filter((lambdaResource: any) => lambdaResource !== excludeFunctionName);
   }
-  if (lambdaResourceNames.length === 0) {
+
+  if (lambdaResourceNames.length === 0 && isInteractive) {
     throw new Error("No functions were found in the project. Use 'amplify add function' to add a new function.");
   }
   return lambdaResourceNames;
@@ -905,12 +914,6 @@ function updateNotificationConfigurationFunction( storageCFNFile : $TSAny , newF
   return storageCFNFile; //updated with new notification lambda function
 }
 
-export enum S3CLICognitoUserRole{
-  AUTH = 'Authenticated',
-  GUEST = 'Guest',
-  GROUP = 'Group'
-}
-
 export enum S3CLITriggerFlow{
   ADD  = "TRIGGER_ADD_FLOW",
   UPDATE = "TRIGGER_UPDATE_FLOW",
@@ -926,6 +929,7 @@ export enum S3CLITriggerStateEvent {
 }
 
 export enum S3CLITriggerUpdateMenuOptions {
+  ADD = 'Add the Trigger',
   UPDATE = 'Update the Trigger',
   REMOVE = 'Remove the trigger',
   SKIP   = 'Skip Question'
@@ -941,11 +945,7 @@ function getCLITriggerStateEvent(triggerFlowType: S3CLITriggerFlow, existingTrig
     }
   } else {
     if ( triggerFlowType === S3CLITriggerFlow.UPDATE ){
-      if(existingTriggerFunction){
-        return S3CLITriggerStateEvent.ERROR; //Adding a new function when a trigger already exists
-      } else {
-        return S3CLITriggerStateEvent.REPLACE_TRIGGER; //Update function should not be
-      }
+      return S3CLITriggerStateEvent.REPLACE_TRIGGER; //Update function should ask for existing or new function to be added
     } else { //REMOVE Flow
       if( existingTriggerFunction ){
         return S3CLITriggerStateEvent.DELETE_TRIGGER;
@@ -954,6 +954,47 @@ function getCLITriggerStateEvent(triggerFlowType: S3CLITriggerFlow, existingTrig
       }
     }
   }
+}
+
+//Interactive: Create new function and display "open file in editor" prompt
+async function interactiveCreateNewLambdaAndUpdateCFN(context : $TSContext, policyID : string){
+  const newTriggerFunction = await createNewLambdaAndUpdateCFN( context, policyID );
+  await askAndOpenFunctionEditor( context, newTriggerFunction );
+  return newTriggerFunction;
+}
+
+//Interactive: Allow Cx to Select existing function
+async function interactiveAddExistingLambdaAndUpdateCFN(context : $TSContext,
+                                                        existingTriggerFunction : string|undefined = undefined,
+                                                        existingLambdaResources : Array<string>|undefined = undefined){
+   //Get all available lambdas - [ exclude the existing triggerFunction ]
+   //note:- In an [update storage + Add trigger flow] , the existing lambda resources are already read and passed into this function.
+   let lambdaResources = (existingLambdaResources)?existingLambdaResources :
+                         await getExistingFunctionsForTrigger(context, existingTriggerFunction, true);
+   //Select the function to add trigger
+   const selectedFunction = await askSelectExistingFunctionToAddTrigger( lambdaResources );
+   //User selected the currently configured trigger function. Hence CFN not updated.
+   return selectedFunction;
+}
+
+//Interaive : Ask Cx to select existing or new function and call downstream interactive functions
+async function interactiveAskTriggerTypeFlow(context : $TSContext , policyID : string,
+                                             existingTriggerFunction : string|undefined,
+                                             existingLambdaResources : Array<string>|undefined = undefined){
+  const triggerTypeAnswer : S3TriggerFunctionType = await askTriggerFunctionTypeQuestion();
+  switch(triggerTypeAnswer){
+      case S3TriggerFunctionType.EXISTING_FUNCTION:
+        const selectedFunction = await interactiveAddExistingLambdaAndUpdateCFN( context,
+                                                                                 existingTriggerFunction,
+                                                                                 existingLambdaResources);
+        return selectedFunction;
+      case S3TriggerFunctionType.NEW_FUNCTION:
+        console.log("SACPCDEBUG:addTrigger: UPDATING Storage with new Trigger function")
+        //Create a new lambda trigger and update cloudformation
+        const newTriggerFunction = await interactiveCreateNewLambdaAndUpdateCFN( context, policyID );
+        return newTriggerFunction;
+  } //Existing function or New function
+  return undefined;
 }
 
 /*
@@ -966,50 +1007,31 @@ export async function addTrigger( triggerFlowType: S3CLITriggerFlow,
                                   resourceName: string,
                                   policyID: string,
                                   existingTriggerFunction: string|undefined) : Promise<string|undefined> {
-      let functionName = undefined;
-      const triggerStateEvent = getCLITriggerStateEvent( triggerFlowType , existingTriggerFunction );
-
+      const triggerStateEvent = getCLITriggerStateEvent( triggerFlowType, existingTriggerFunction );
+      let triggerFunction : string|undefined = existingTriggerFunction;
       switch( triggerStateEvent ) {
           case  S3CLITriggerStateEvent.ERROR :
             throw new Error("Lambda Trigger is already enabled, please use 'amplify update storage'")
-            break;
           case S3CLITriggerStateEvent.ADD_NEW_TRIGGER :
-            // Create a new lambda trigger and update cloudformation
-            functionName = await createNewLambdaAndUpdateCFN( context, policyID);
-            await askAndOpenFunctionEditor( context, functionName );
-            return functionName
+            // Check if functions exist and if exists, ask if Cx wants to use existing or create new
+            let existingLambdaResources = await getExistingFunctionsForTrigger(context, existingTriggerFunction, false);
+            if (existingLambdaResources && existingLambdaResources.length > 0 ){
+              triggerFunction = await interactiveAskTriggerTypeFlow( context, policyID,
+                                                                     existingTriggerFunction,
+                                                                     existingLambdaResources);
+            } else {
+              //add a new function
+               triggerFunction = await interactiveCreateNewLambdaAndUpdateCFN( context, policyID );
+            }
+            break
           case S3CLITriggerStateEvent.REPLACE_TRIGGER :
-            const triggerTypeAnswer : S3TriggerFunctionType = await askTriggerFunctionTypeQuestion();
-            let lambdaResources = undefined;
-            switch(triggerTypeAnswer){
-                case S3TriggerFunctionType.EXISTING_FUNCTION:
-                  //Get all available lambdas - [ exclude the existing triggerFunction ]
-                  lambdaResources = await getExistingFunctionsForTrigger(context, existingTriggerFunction);
-                  //Select the function to add trigger
-                  const selectedFunction = await askSelectExistingFunctionToAddTrigger( lambdaResources );
-
-                  //User selected the currently configured trigger function. Hence CFN not updated.
-                  if ( selectedFunction === existingTriggerFunction) {
-                    return existingTriggerFunction;
-                  }
-                  //remove existing trigger from CFN and add selectedFunction
-                  await replaceLambdaTriggerInCFN(context, resourceName, existingTriggerFunction, selectedFunction);
-
-                  //exportFunctionExecutionRoleInCFN(context, selectedFunction);
-                  return selectedFunction;
-                case S3TriggerFunctionType.NEW_FUNCTION:
-                  //Create a new lambda trigger and update cloudformation
-                  const newTriggerFunction = await createNewLambdaAndUpdateCFN( context, policyID );
-                  await askAndOpenFunctionEditor( context, newTriggerFunction );
-                  return newTriggerFunction;
-            } //Existing function or New function
-            break;
+            triggerFunction = await interactiveAskTriggerTypeFlow(context, policyID,existingTriggerFunction);
+            break
           case S3CLITriggerStateEvent.DELETE_TRIGGER:
-                await deleteLambdaTriggerInCFN(context, resourceName, existingTriggerFunction);
-                return undefined;
-
+            triggerFunction = undefined; // no trigger function.
+            break
       } // END - TriggerState event
-
+      return triggerFunction;
   }
 
 //   // If updating an already existing S3 resource
@@ -1230,24 +1252,6 @@ async function getLambdaFunctions(context: any) {
   return lambdaResources;
 }
 
-async function askWhatKindOfAccess(userType: any, context: any, answers: any, parameters: any) {
-  const defaults: any = [];
-
-  if (parameters[`selected${userType}Permissions`]) {
-    Object.values(permissionMap).forEach((el, index) => {
-      if (el.every(i => parameters[`selected${userType}Permissions`].includes(i))) {
-        defaults.push(Object.keys(permissionMap)[index]);
-      }
-    });
-  }
-
-  const selectedPermissions = await context.amplify.crudFlow(userType, permissionMap, defaults);
-
-  createPermissionKeys(userType, answers, selectedPermissions);
-
-  return selectedPermissions;
-}
-
 function createPermissionKeys(userType: any, answers: any, selectedPermissions: any) {
   const [policyId] = uuid().split('-');
 
@@ -1255,8 +1259,8 @@ function createPermissionKeys(userType: any, answers: any, selectedPermissions: 
   const maxPermissions = ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'];
   const maxPublic = maxPermissions;
   const maxUploads = ['s3:PutObject'];
-  const maxPrivate = userType === S3CLICognitoUserRole.AUTH ? maxPermissions : [];
-  const maxProtected = userType === S3CLICognitoUserRole.AUTH ? maxPermissions : ['s3:GetObject'];
+  const maxPrivate = userType ===  S3UserAccessRole.AUTH ? maxPermissions : [];
+  const maxProtected = userType === S3UserAccessRole.AUTH ? maxPermissions : ['s3:GetObject'];
 
   function addPermissionKeys(key: any, possiblePermissions: any) {
     const permissions = _.intersection(selectedPermissions, possiblePermissions).join();
@@ -1589,9 +1593,6 @@ module.exports = {
 };
 
 
-function replaceLambdaTriggerInCFN(context: $TSContext, resourceName: string, existingTriggerFunction: string | undefined, selectedFunction: string) {
-  throw new Error('Function not implemented.');
-}
 
 
 function deleteLambdaTriggerInCFN(context: $TSContext, resourceName: string, existingTriggerFunction: string | undefined) {

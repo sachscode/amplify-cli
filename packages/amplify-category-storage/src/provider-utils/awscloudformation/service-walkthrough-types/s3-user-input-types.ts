@@ -11,6 +11,20 @@ export enum S3TriggerFunctionType {
     NEW_FUNCTION = 'Create a new function'
 }
 
+export enum S3UserAccessRole {
+    AUTH = "Auth",
+    GUEST = "Guest",
+    GROUP = "Group"
+}
+
+export function getUserAccessQuestions( accessRole : S3UserAccessRole ): string {
+     if( accessRole === S3UserAccessRole.AUTH ){
+         return "Authenticated";
+     } else {
+         return accessRole.toString()
+     }
+}
+
 export enum S3AccessType  {
     AUTH_AND_GUEST =  "authAndGuest",
     AUTH_ONLY =  "auth"
@@ -53,3 +67,16 @@ export function defaultS3UserInputs() :S3UserInputs {
     };
     return defaultS3UserInputValues;
 }
+
+
+export function getRoleAccessDefaultValues( role : string, userInputs : S3UserInputs ){
+    switch(role){
+      case S3UserAccessRole.AUTH:
+        return userInputs.authAccess;
+      case S3UserAccessRole.GUEST:
+       return userInputs.guestAccess;
+      case S3UserAccessRole.GROUP:
+       return userInputs.groupAccess;
+    }
+    throw new Error(`Unknown Role in User Input: "${role}" : No Access`)
+ }
