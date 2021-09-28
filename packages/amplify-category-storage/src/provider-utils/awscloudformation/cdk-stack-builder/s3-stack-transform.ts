@@ -5,7 +5,7 @@ import * as cdk from '@aws-cdk/core';
 import {AmplifyS3ResourceInputParameters} from './types'
 import { App } from '@aws-cdk/core';
 import * as fs from 'fs-extra';
-import { JSONUtilities } from 'amplify-cli-core';
+import { $TSContext, JSONUtilities } from 'amplify-cli-core';
 import path from 'path';
 
 
@@ -31,7 +31,7 @@ export class AmplifyS3ResourceStackTransform {
         this.cliInputs = this.cliInputsState.getCliInputPayload();
     }
 
-    async transform() {
+    async transform(context : $TSContext) {
         //SACPC!: Validation logic is broken. TBD
         // const validationResult =   await this.cliInputsState.isCLIInputsValid();
         // console.log("SACPCDEBUG: TRANSFORM: ValidationResult: ", validationResult);
@@ -39,7 +39,7 @@ export class AmplifyS3ResourceStackTransform {
         //Only generate stack if truthsy
         if ( validationResult ) {
             // Generate  cloudformation stack from cli-inputs.json
-            await this.generateStack();
+            await this.generateStack(context);
 
             this.generateCfnInputParameters();
 
@@ -70,7 +70,7 @@ export class AmplifyS3ResourceStackTransform {
         this._saveFilesToLocalFileSystem('parameters.json', this.cfnInputParams);
     }
 
-    async generateStack() {
+    async generateStack( context : $TSContext ) {
         // Create Resource Stack from CLI Inputs in this._resourceTemplateObj
         this._resourceTemplateObj = new AmplifyS3ResourceCfnStack(this.app, 'AmplifyS3ResourceStack', this.cliInputs);
 
@@ -92,7 +92,7 @@ export class AmplifyS3ResourceStackTransform {
         * 4. Configure Cognito User pool policies
         * 5. Configure Trigger policies
         */
-        this._resourceTemplateObj.generateCfnStackResources();
+        await this._resourceTemplateObj.generateCfnStackResources(context);
 
         // Render CFN Template string and store as member in this.cfn
         this.cfn = this._resourceTemplateObj.renderCloudFormationTemplate();

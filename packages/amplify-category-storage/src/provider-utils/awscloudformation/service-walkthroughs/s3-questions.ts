@@ -20,6 +20,8 @@ export function normalizePermissionsMapValue( permissionValue : Array<S3Permissi
       return permissionValue[0];
     }
 }
+
+//If READ permission then implicitly provide LIST permission
 export function denormalizePermissions( permissionValue : Array<S3PermissionType> ){
   console.log("SACPCDEBUG: DENORMALIZATION : ", permissionValue );
   if ( permissionValue.includes(S3PermissionType.READ) ){
@@ -30,6 +32,15 @@ export function denormalizePermissions( permissionValue : Array<S3PermissionType
 
 export const possibleCRUDOperations = Object.keys(permissionMap).map(el => ({ name: el,
                                                                               value: normalizePermissionsMapValue(permissionMap[el]) }));
+
+function getKeyFromValue( obj:Record<string, Array<any>>, value :any ){
+    for ( const key of Object.keys(obj) ){
+      if ( obj[key].includes(value) ){
+        return key;
+      }
+    }
+    return undefined;
+}
 
 export async function askAndInvokeAuthWorkflow(context: $TSContext){
     while (!checkIfAuthExists(context)) {
@@ -116,10 +127,20 @@ export async function askWhoHasAccessQuestion( context: $TSContext, defaultValue
   return (answer as any).storageAccess as S3AccessType;
 }
 
+//Function is called after User Pool Group permissions menu selection.
+export async function conditionallyAskWhoHasAccessQuestion( userGroupPermissionSelected : string,
+                                                   context: $TSContext ,
+                                                   defaultValues : S3UserInputs ): Promise<S3AccessType|undefined> {
+    if (userGroupPermissionSelected === 'Both' || userGroupPermissionSelected === 'Auth/Guest Users'){
+      const accessType = await askWhoHasAccessQuestion( context, defaultValues )
+      return accessType;
+    } else {
+      return defaultValues.storageAccess;
+    }
+}
 
-
-export async function askCRUDQuestion( role: S3UserAccessRole, context: $TSContext, defaultValues: S3UserInputs): Promise<Array<S3PermissionType>>{
-  const roleDefaultValues = getRoleAccessDefaultValues(role, defaultValues);
+export async function askCRUDQuestion( role: S3UserAccessRole , groupName :string|undefined = undefined, context: $TSContext, defaultValues: S3UserInputs): Promise<Array<S3PermissionType>>{
+  const roleDefaultValues = getRoleAccessDefaultValues(role, groupName, defaultValues);
   console.log("SACPCDEBUG: Ask CRUD Question: defaultValues: ",possibleCRUDOperations, " default: ", roleDefaultValues );
   const question = [{
     name: 'permissions',
@@ -139,14 +160,14 @@ export async function askCRUDQuestion( role: S3UserAccessRole, context: $TSConte
   return results;
 }
 
-export async function askUserPoolGroupSelectionQuestion( userPoolGroupList : string[], defaultSelectedGroups: any): Promise<string[]> {
+export async function askUserPoolGroupSelectionQuestion(  userPoolGroupList : Array<string>, context : $TSContext , defaultValues: S3UserInputs ): Promise<string[]> {
     const question = [
       {
         name: 'userpoolGroups',
         type: 'checkbox',
         message: 'Select groups:',
         choices: userPoolGroupList,
-        default: defaultSelectedGroups,
+        default: defaultValues.groupList,
         validate: (selectedAnswers: any) => {
           if (selectedAnswers.length === 0) {
             return 'Select at least one option';
@@ -156,8 +177,8 @@ export async function askUserPoolGroupSelectionQuestion( userPoolGroupList : str
       },
     ];
     const answers = await inquirer.prompt(question); //multi-select checkbox
-    const results:string[] = answers.userpoolGroups as string[];
-    return results;
+    console.log("SACPCDEBUG: SELECTED USERPOOLGROUPSelection : ", answers.userpoolGroups);
+    return  answers.userpoolGroups as string[];
 }
 
 export async function askUserPoolGroupPermissionSelectionQuestion() : Promise<string>{
@@ -196,29 +217,28 @@ export async function askUpdateTriggerSelection( currentTriggerFunction : string
 
 export async function askAuthPermissionQuestion( context : $TSContext ,
                                                   defaultValues : S3UserInputs ){
-  const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.AUTH, context, defaultValues );
+  const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.AUTH, undefined, context, defaultValues );
   return permissions;
 }
 
-export async function conditionallyAskGuestPermissionQuestion( storageAccess : S3AccessType, context : $TSContext, defaultValues : any):Promise<S3PermissionType[]>{
+
+export async function conditionallyAskGuestPermissionQuestion( storageAccess : S3AccessType | undefined, context : $TSContext, defaultValues : any):Promise<S3PermissionType[]>{
   if (storageAccess === S3AccessType.AUTH_AND_GUEST) {
-    const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.GUEST, context, defaultValues );
+    const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.GUEST, undefined, context, defaultValues );
     return permissions;
   } else {
     return [];
   }
 }
 
-export async function askGroupPermissionQuestion( context : $TSContext ,
-  defaultValues : any ){
-  const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.GROUP, context, defaultValues );
+export async function askGroupPermissionQuestion( groupName : string, context : $TSContext , defaultValues : any ){
+  const permissions: S3PermissionType[] = await askCRUDQuestion( S3UserAccessRole.GROUP , groupName, context, defaultValues );
   return permissions;
 }
 
-export async function askUserPoolGroupSelectionUntilPermissionSelected( context: $TSContext ) : Promise<string>{
-  const userPoolGroupList = await context.amplify.getUserPoolGroupList(context);
+export async function askUserPoolGroupSelectionUntilPermissionSelected( userPoolGroupList : string[], context: $TSContext, userInput: S3UserInputs ) : Promise<string>{
   let permissionSelected = 'Auth/Guest Users';
-  if (userPoolGroupList.length > 0) {
+  if (userPoolGroupList && userPoolGroupList.length > 0) {
     do {
       if (permissionSelected === 'Learn more') {
         printer.info('');
@@ -231,4 +251,50 @@ export async function askUserPoolGroupSelectionUntilPermissionSelected( context:
     } while (permissionSelected === 'Learn more');
   }
   return permissionSelected;
+}
+
+//MUT!!: This function *mutates* cliInputs based on the answers to questions.
+export async function askGroupOrIndividualAccessFlow(  userPoolGroupList: Array<string> , context : $TSContext, cliInputs : S3UserInputs): Promise<S3UserInputs> {
+    if ( userPoolGroupList && userPoolGroupList.length > 0){
+      //Ask S3 walkthrough questions
+      console.log("SACPCDEBUG: UserPoolGroupList: ",userPoolGroupList );
+
+      const permissionSelected = await askUserPoolGroupSelectionUntilPermissionSelected(userPoolGroupList, context, cliInputs );
+      if (permissionSelected === 'Both' || permissionSelected === 'Auth/Guest Users') {
+        //Build userInputs for S3 Auth/Guest users
+        cliInputs.storageAccess = await askWhoHasAccessQuestion(context, cliInputs); //Auth/Guest
+        cliInputs.authAccess  = await askAuthPermissionQuestion(context, cliInputs);
+        cliInputs.guestAccess = await conditionallyAskGuestPermissionQuestion( cliInputs.storageAccess, context, cliInputs);
+
+        //Reset group-permissions if using auth/guest
+        if (permissionSelected === 'Auth/Guest Users'){
+          cliInputs.groupList = [];
+          cliInputs.groupAccess = undefined;
+        }
+      }
+      if (permissionSelected === 'Both' || permissionSelected === 'Individual Groups') {
+        //Remove all auth and guest access and only rely on Groups
+        if ( permissionSelected === 'Individual Groups' ){
+          cliInputs.authAccess = [];
+          cliInputs.guestAccess = [];
+        }
+        //Update the groupList to select from
+        const  selectedUserPoolGroupList = await askUserPoolGroupSelectionQuestion( userPoolGroupList, context, cliInputs );
+        //Ask Group Permissions and assign to cliInputs
+        if (!cliInputs.groupAccess){
+          cliInputs.groupAccess = {};
+        }
+        if ( !cliInputs.groupList ){
+          cliInputs.groupList = [];
+        }
+        if ( selectedUserPoolGroupList && selectedUserPoolGroupList.length > 0) {
+            for (const selectedGroup of selectedUserPoolGroupList ){
+              cliInputs.groupAccess[selectedGroup] = await askGroupPermissionQuestion( selectedGroup, context, cliInputs)
+            }
+            cliInputs.groupList = selectedUserPoolGroupList;
+        }
+      }
+
+    }
+ return cliInputs;
 }

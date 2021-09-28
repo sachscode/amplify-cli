@@ -69,14 +69,18 @@ export function defaultS3UserInputs() :S3UserInputs {
 }
 
 
-export function getRoleAccessDefaultValues( role : string, userInputs : S3UserInputs ){
+export function getRoleAccessDefaultValues( role : string, groupName: string | undefined ,userInputs : S3UserInputs ){
     switch(role){
       case S3UserAccessRole.AUTH:
         return userInputs.authAccess;
       case S3UserAccessRole.GUEST:
        return userInputs.guestAccess;
       case S3UserAccessRole.GROUP:
-       return userInputs.groupAccess;
+        if ( userInputs.groupAccess && groupName){
+            return userInputs.groupAccess[groupName]
+        } else {
+            return [];
+        }
     }
     throw new Error(`Unknown Role in User Input: "${role}" : No Access`)
  }

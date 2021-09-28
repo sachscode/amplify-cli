@@ -130,6 +130,14 @@ export class S3InputState {
       return this._inputPayload;
   }
 
+  public setPoolGroupList( poolGroupList : Array<string>){
+    if(this._inputPayload) {
+      this._inputPayload.groupList = poolGroupList;
+    } else {
+      throw Error("ERROR: Pool Group is updated in Add Storage ");
+    }
+  }
+
   public async isCLIInputsValid(cliInputs?: S3UserInputs) {
     if(!cliInputs) {
       cliInputs = this.getCliInputPayload();

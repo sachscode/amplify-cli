@@ -7,10 +7,12 @@ import * as lambdaCdk from '@aws-cdk/aws-lambda';
 
 
 import {AmplifyResourceCfnStack, AmplifyS3ResourceTemplate, AmplifyCfnParamType} from './types';
-import { S3UserInputs, defaultS3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
-import { $TSAny, $TSObject } from 'amplify-cli-core';
+import { S3UserInputs, defaultS3UserInputs, GroupAccessType, S3PermissionType } from '../service-walkthrough-types/s3-user-input-types';
+import { $TSAny, $TSContext, $TSObject } from 'amplify-cli-core';
 import { HttpMethods } from '@aws-cdk/aws-s3';
 import { isResolvableObject } from '@aws-cdk/core';
+import * as s3AuthAPI from '../service-walkthroughs/s3-auth-api';
+import { S3InputState } from '../service-walkthroughs/s3-user-input-state';
 
 
 export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implements AmplifyS3ResourceTemplate {
@@ -45,7 +47,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     }
 
      //Generate cloudformation stack for S3 resource
-     generateCfnStackResources() {
+     async generateCfnStackResources(context : $TSContext ) {
         //1. Create the S3 bucket and configure CORS
         this.s3Bucket = new s3Cdk.CfnBucket(this, 'S3Bucket', {
             bucketName : this.buildBucketName(),
@@ -69,9 +71,13 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         //4. Configure Cognito User pool policies
         if ( this._props.groupList && this._props.groupList.length > 0 ){
             console.log("SACPCDEBUG: GROUP-POLICIES TBD");
-            this.s3GroupPolicyList = this.createGroupPolicies( this._props.groupList as Array<string>,
-                                      this._props.groupAccess as $TSObject );
-            console.log("SACPCDEBUG: GROUP-POLICIES DONE");
+            const authResourceName : string = await s3AuthAPI.getAuthResourceARN( context );
+            this.s3GroupPolicyList = this.createS3AmplifyGroupPolicies( authResourceName,
+                                                                        this._props.groupList as Array<string>,
+                                                                        this._props.groupAccess as GroupAccessType );
+            console.log("SACPCDEBUG: GROUP-POLICIES DONE: authResourceARN: ", authResourceName);
+            //add Group Params - Auth resource name and auth roles
+            this.addGroupParams(authResourceName);
         }
 
         //5. Configure Trigger policies
@@ -79,6 +85,31 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             this.s3TriggerPolicy = this.createTriggerPolicy();
         }
     }
+
+
+    public addGroupParams( authResourceName : string ) : AmplifyS3CfnParameters | undefined {
+        if ( this._props.groupList ) {
+            let s3CfnParams : Array<AmplifyCfnParamType> = [
+                {
+                    params : [`auth${authResourceName}UserPoolId`],
+                    paramType : 'String',
+                    default: `auth${authResourceName}UserPoolId`
+                }
+            ];
+
+            for (const groupName of this._props.groupList) {
+                s3CfnParams.push({
+                    params : [`authuserPoolGroups${this.buildGroupRoleName(groupName)}`],
+                    paramType : 'String',
+                    default: `authuserPoolGroups${this.buildGroupRoleName(groupName)}`
+                });
+            }
+            //insert into the stack
+            s3CfnParams.map(params => this._setCFNParams(params) )
+        }
+        return undefined;
+    }
+
 
     public addParameters(){
         let s3CfnParams : Array<AmplifyCfnParamType> = [
@@ -113,6 +144,12 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                                     default : param
                                 } )
                         } );
+        }
+
+        if ( this._props.groupList && this._props.groupList.length > 0 ){
+            const params = [`function${this._props.triggerFunction}Arn`,
+            `function${this._props.triggerFunction}Name`,
+            `function${this._props.triggerFunction}LambdaExecutionRole`]
         }
 
         let s3CfnDependsOnParams : Array<AmplifyCfnParamType> = this._getDependsOnParameters()
@@ -642,54 +679,84 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         return policy;
     }
 
+    //Helper:: function to create Cognito Group IAM policy & bind to the App's stack
+    createS3AmplifyGroupPolicies( authResourceName: string,  groupList : string[], groupPolicyMap : GroupAccessType ) : Array<iamCdk.CfnPolicy>{
+        const groupPolicyList : Array<iamCdk.CfnPolicy> = [];
+        //Build policy statement
+        for( const groupName of groupList ){
+            const logicalID =  this.buildGroupPolicyLogicalID(groupName);
+            const groupPolicyName = this.buildGroupPolicyName(groupName);
+            const policyStatementList = this._buildCDKGroupPolicyStatements(groupPolicyMap[groupName]);//convert permissions to statements
+            const props : iamCdk.CfnPolicyProps = {
+                policyName : groupPolicyName,
+                roles : this.buildCDKGroupRoles(groupName, authResourceName),
+                policyDocument : this._buildCDKGroupPolicyDocument(policyStatementList),
+            };
+            const groupPolicy : iamCdk.CfnPolicy = new iamCdk.CfnPolicy(this, logicalID, props);
+            groupPolicyList.push(groupPolicy);
+        }
+        return groupPolicyList;
+    }
+
     /**************************************************************************************************
      *  END IAM Policies - Control Auth and Guest access to S3 bucket using Cognito Identity Pool
      * ***********************************************************************************************/
 
-    createGroupPolicies( groupList : string[], groupPolicyMap : $TSObject ) : Array<iamCdk.CfnPolicy> {
-        //Build policy statement
-        const groupPolicies = groupList.map( groupName => {
-            const policyList :Array<iamCdk.PolicyStatement> = [];
-            const groupPolicy = groupPolicyMap[groupName];
-            const bucketArn = cdk.Fn.join('', [cdk.Fn.ref(`auth${this._props.resourceName}UserPoolId`), '-',  `${groupName}GroupRole`]).toString();
-            policyList.push(
+
+    //Helper:: create logical ID from groupName
+    buildGroupPolicyLogicalID(groupName :string):string{
+        return `${groupName}GroupPolicy`;
+    }
+    //Helper:: create policyName from groupName
+    buildGroupPolicyName(groupName: string):string{
+        return `${groupName}-group-s3-policy`;
+    }
+    //Helper:: create group Role name from groupName
+    buildGroupRoleName( groupName: string):string {
+        return `${groupName}GroupRole`;
+    }
+
+    //Helper:: create CDK Group-Role name from groupName and cognito ARN
+    public buildCDKGroupRoles( groupName: string, authResourceName: string){
+        const roles =  [
+            cdk.Fn.join( "",[cdk.Fn.ref(`auth${authResourceName}UserPoolId`), `-${this.buildGroupRoleName(groupName)}`])
+        ]
+        return roles;
+    }
+
+    //Helper:: Create Group permissions into CDK policy statements
+    _buildCDKGroupPolicyStatements( groupPerms : S3PermissionType[]) :iamCdk.PolicyStatement[]{
+           const policyStatementList : Array<iamCdk.PolicyStatement> = [];
+           const bucketArn = cdk.Fn.join('', [ "arn:aws:s3:::" , cdk.Fn.ref("S3Bucket")]).toString();
+           const permissions = groupPerms.map( groupPerm => S3InputState.getCfnTypeFromPermissionType(groupPerm) )
+           policyStatementList.push(
                 new iamCdk.PolicyStatement({
-                    resources: [ bucketArn,`${bucketArn}/*` ],
-                    actions: groupPolicy,
+                    resources: [ `${bucketArn}/*` ],
+                    actions: permissions,
                     effect: iamCdk.Effect.ALLOW,
                 })
-            );
-
-            if ( groupPolicy.includes('s3:ListBucket') ){
-                policyList.push(
+           );
+           if ( groupPerms.includes( S3PermissionType.LIST )){
+                policyStatementList.push(
                     new iamCdk.PolicyStatement({
-                        resources: [ bucketArn ],
-                        actions: ["s3:ListBucket"],
+                        resources: [ `${bucketArn}` ],
+                        actions: [S3InputState.getCfnTypeFromPermissionType(S3PermissionType.LIST)],
                         effect: iamCdk.Effect.ALLOW,
                     })
-                );
-            }
-            const policyDocument = new iamCdk.PolicyDocument({
-                statements: policyList,
-            });
-            return this.createAmplifyS3GroupPolicy(groupName, policyDocument)
-        })
-        return groupPolicies;
+                )
+           }
+           return policyStatementList;
     }
 
-    //create and bind the policy
-    createAmplifyS3GroupPolicy( groupName :string, policyDocument: iamCdk.PolicyDocument ): iamCdk.CfnPolicy {
-        const groupRole = cdk.Fn.join('', [cdk.Fn.ref(`auth${this._props.resourceName}UserPoolId`), '-', `${groupName}GroupRole`]).toString();
-        const props : iamCdk.CfnPolicyProps = {
-             policyName : `${groupName}-group-s3-policy`,
-             roles : [ groupRole ],
-             policyDocument
-        };
-        const groupPolicy : iamCdk.CfnPolicy = new iamCdk.CfnPolicy(this, this.id, props);
-        return groupPolicy;
+    //Helper:: Create PolicyDocument from policyStatement list
+    _buildCDKGroupPolicyDocument( policyStatementList :iamCdk.PolicyStatement[]){
+        const policyDocument = new iamCdk.PolicyDocument();
+        policyStatementList.map( policyStatement => {
+            //Add Statement to Policy
+            policyDocument.addStatements(policyStatement);
+        });
+        return policyDocument;
     }
-
-
 
     //Helper: Add CFN Resource Param definitions as CfnParameter .
     _setCFNParams( paramDefinitions : AmplifyCfnParamType ){
