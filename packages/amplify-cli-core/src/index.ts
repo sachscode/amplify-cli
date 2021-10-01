@@ -276,6 +276,7 @@ interface AmplifyToolkit {
     resourceName: string,
     metaResourceKey: string,
     metaResourceData?: $TSAny,
+    overwriteIfExists? : boolean
   ) => $TSMeta;
   updateamplifyMetaAfterResourceAdd: (
     category: string,

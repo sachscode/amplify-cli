@@ -2,6 +2,8 @@ import * as cdk from '@aws-cdk/core';
 import * as ddb from '@aws-cdk/aws-dynamodb';
 import * as s3Cdk from '@aws-cdk/aws-s3';
 import * as iamCdk from '@aws-cdk/aws-iam';
+import { $TSObject } from 'amplify-cli-core';
+import { printErrorAlreadyCreated } from '../service-walkthroughs/s3-errors';
 
 
 export interface AmplifyDDBResourceTemplate {
@@ -67,8 +69,8 @@ export interface AmplifyS3ResourceInputParameters {
     policyUUID? : string,
     authPolicyName? : string,
     unauthPolicyName? : string,
-    authRoleName? : string,
-    unauthRoleName? : string,
+    authRoleName? : $TSObject,
+    unauthRoleName? : $TSObject,
     s3PublicPolicy? : string,
     s3PrivatePolicy? : string, //default:"NONE"
     s3ProtectedPolicy? : string,
@@ -142,7 +144,7 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
       try {
         return new cdk.CfnResource(this, logicalId, props);
       } catch (error) {
-        throw new Error(error);
+        throw error;
       }
     }
     /**
@@ -157,7 +159,7 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
         }
         this._cfnParameterMap.set(logicalId, new cdk.CfnParameter(this, logicalId, props));
       } catch (error) {
-        throw new Error(error);
+        throw error;
       }
     }
 
@@ -168,3 +170,8 @@ export class AmplifyResourceCfnStack extends cdk.Stack implements AmplifyCDKL1 {
 
 }
 
+//Types used in Build/Params.json
+export enum AmplifyBuildParamsPermissions {
+  ALLOW =  "ALLOW",
+  DISALLOW = "DISALLOW"
+}

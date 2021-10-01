@@ -6,9 +6,9 @@ import _ from 'lodash';
 import uuid from 'uuid';
 import { printer } from 'amplify-prompts';
 import { ResourceDoesNotExistError, ResourceAlreadyExistsError, exitOnNextTick, $TSAny, $TSContext, AmplifyCategories } from 'amplify-cli-core';
-import { S3CFNPermissionMapType, S3CLIWalkthroughParams, S3InputState, S3InputStateOptions, S3PermissionMapType } from './s3-user-input-state';
+import { S3CFNDependsOn, S3CFNPermissionMapType, S3CLIWalkthroughParams, S3InputState, S3InputStateOptions, S3PermissionMapType } from './s3-user-input-state';
 import { pathManager } from 'amplify-cli-core';
-import { AmplifyS3ResourceInputParameters } from '../cdk-stack-builder/types';
+import { AmplifyBuildParamsPermissions, AmplifyS3ResourceInputParameters } from '../cdk-stack-builder/types';
 import { S3ResourceParameters } from '../import/types';
 import { S3AccessType, S3UserAccessRole, S3UserInputs, S3TriggerFunctionType, S3PermissionType } from '../service-walkthrough-types/s3-user-input-types';
 import { AmplifyS3ResourceStackTransform } from  '../cdk-stack-builder/s3-stack-transform'
@@ -67,24 +67,33 @@ async function addWalkthrough( context: $TSContext ){
     const guestAccess = await conditionallyAskGuestPermissionQuestion( storageAccess, context, defaultValues);
     const triggerFunction = await startAddTriggerFunctionFlow(context, resourceName, policyID, undefined );
 
+
     //Build userInputs for S3 resources
     let cliInputs : S3UserInputs = {
-      resourceName,
-      bucketName,
-      policyUUID : policyID,
-      storageAccess,
-      authAccess : authAccess,
-      guestAccess : guestAccess,
-      triggerFunction : (triggerFunction)?triggerFunction:"NONE",
-      groupAccess : {},
-      groupList: []
-    }
+                                      resourceName,
+                                      bucketName,
+                                      policyUUID : policyID,
+                                      storageAccess,
+                                      authAccess : authAccess,
+                                      guestAccess : guestAccess,
+                                      triggerFunction : (triggerFunction)?triggerFunction:"NONE",
+                                      groupAccess : {},
+                                      groupList: []
+                                    }
+    let s3DependsOnResources : Array<S3CFNDependsOn> = [];
+
+    // //Save DependsOn in Root
+    // context.amplify.updateamplifyMetaAfterResourceUpdate(AmplifyCategories.STORAGE,
+    //                                                      resourceName /*friendly name*/ ,
+    //                                                      'dependsOn',
+    //                                                     s3DependsOnResources);
 
     //Save CLI Inputs payload
     const cliInputsState = new S3InputState(cliInputs.resourceName as string, cliInputs);
     cliInputsState.saveCliInputPayload( cliInputs );
+
     //Generate Cloudformation
-    const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string);
+    const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context );
     await stackGenerator.transform(context);
     return cliInputs.resourceName;
   }
@@ -134,7 +143,7 @@ async function  updateWalkthrough(context: any){
       //Save CLI Inputs payload
       cliInputsState.saveCliInputPayload(cliInputs);
       //Generate Cloudformation
-      const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string);
+      const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context);
       stackGenerator.transform(context);
       return cliInputs.resourceName;
   }
@@ -221,304 +230,6 @@ async function getS3ResourceName( context : $TSContext, amplifyMeta: any) : Prom
   return undefined;
 }
 
-/*************
-
-async function configure(context: $TSContext, defaultValuesFilename: string,
-                         serviceMetadata: any, resourceName: string|undefined,
-                         options: S3CLIWalkthroughParams|undefined) {
-  const { amplify } = context;
-  let { inputs } = serviceMetadata;
-  const defaultValuesSrc = path.join(__dirname, '..', 'default-values', defaultValuesFilename);
-  const { getAllDefaults } = require(defaultValuesSrc);
-
-  const defaultValues = getAllDefaults(amplify.getProjectDetails());
-  const projectBackendDirPath = context.amplify.pathManager.getBackendDirPath();
-  let parameters : AmplifyS3ResourceInputParameters  = {};
-
-  let userInputs : S3UserInputs|undefined = undefined;
-  let cliInputState : S3InputState;
-
-  //Update workflow
-  if (resourceName) {
-    //read previously generated user inputs
-    cliInputState = S3InputState.getInstance({ resourceName });
-    userInputs = cliInputState.getUserInput();
-
-    inputs = inputs.filter((input: any) => input.key !== 'resourceName');
-    const resourceDirPath = path.join(projectBackendDirPath, category, resourceName);
-    const parametersFilePath = path.join(resourceDirPath, parametersFileName);
-    try {
-      parameters = amplify.readJsonFile(parametersFilePath);
-    } catch (e) {
-      parameters = {};
-    }
-    parameters.resourceName = resourceName;
-    Object.assign(defaultValues, parameters);
-  }
-
-  const userPoolGroupList = await context.amplify.getUserPoolGroupList(context);
-  const permissionSelected = await askUserPoolGroupSelectionUntilPermissionSelected(context);
-  let allowUnauthenticatedIdentities; // default to undefined since if S3 does not require unauth access the IdentityPool can still have that enabled
-
-  let answers = {};
-  if (permissionSelected === 'Both' || permissionSelected === 'Auth/Guest Users') {
-    const whoHasAccess = await askWhoHasAccessQuestion( context, defaultValues );
-
-    // auth permissions
-    const selectedAuthenticatedPermissions = await askWhatKindOfAccess('Authenticated', context, answers, parameters);
-    let selectedGuestPermissions = undefined;
-    if (whoHasAccess === 'authAndGuest') {
-      selectedGuestPermissions = await askWhatKindOfAccess('Guest', context, answers, parameters);
-      allowUnauthenticatedIdentities = true;
-    }
-  }
-
-  if (permissionSelected === 'Both' || permissionSelected === 'Individual Groups') {
-    if (permissionSelected === 'Individual Groups') {
-      removeAuthUnauthAccess(answers);
-    }
-
-    let defaultSelectedGroups: any = [];
-
-    if (userInputs) {
-      defaultSelectedGroups = userInputs.groupList;
-    }
-    const selectedUserPoolGroupList : string[] = await askUserPoolGroupSelectionQuestion( userPoolGroupList, defaultSelectedGroups)
-
-
-    const groupPermissionMap = {};
-    const groupPolicyMap = {};
-
-    for (let i = 0; i < selectedUserPoolGroupList.length; i += 1) {
-      let defaults = [];
-
-      if (storageParams && (storageParams as any).groupPermissionMap) {
-        defaults = (storageParams as any).groupPermissionMap[selectedUserPoolGroupList[i]];
-      }
-
-      const whatKindOfGroupAccess = await askCRUDQuestion( selectedUserPoolGroupList[i], context, defaults);
-
-      // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      groupPermissionMap[selectedUserPoolGroupList[i]] = whatKindOfGroupAccess.permissions;
-      // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      groupPolicyMap[selectedUserPoolGroupList[i]] = whatKindOfGroupAccess.policies;
-    }
-
-    // Get auth resources
-
-    let authResources = (await context.amplify.getResourceStatus('auth')).allResources;
-
-    authResources = authResources.filter((resource: any) => resource.service === 'Cognito');
-
-    if (authResources.length === 0) {
-      throw new Error('No auth resource found. Please add it using amplify add auth');
-    }
-
-    const authResourceName = authResources[0].resourceName;
-
-    // add to storage params
-(storageParams as any).groupPermissionMap = groupPermissionMap;
-
-    if (!resourceName) {
-      // add to depends
-      if (!options.dependsOn) {
-        options.dependsOn = [];
-      }
-
-      options.dependsOn.push({
-        category: 'auth',
-        resourceName: authResourceName,
-        attributes: ['UserPoolId'],
-      });
-
-      selectedUserPoolGroupList.forEach((group: any) => {
-        options.dependsOn.push({
-          category: 'auth',
-          resourceName: 'userPoolGroups',
-          attributes: [`${group}GroupRole`],
-        });
-      });
-      // add to props
-
-      defaultValues.authResourceName = authResourceName;
-      defaultValues.groupList = selectedUserPoolGroupList;
-      defaultValues.groupPolicyMap = groupPolicyMap;
-    } else {
-      // In the update flow
-      await updateCfnTemplateWithGroups(
-        context,
-        defaultSelectedGroups,
-        selectedUserPoolGroupList,
-        groupPolicyMap,
-        resourceName,
-        authResourceName,
-      );
-    }
-  }
-
-
-
-  // Ask Lambda trigger question
-
-  if (!parameters || !(parameters as any).triggerFunction || (parameters as any).triggerFunction === 'NONE') {
-    if (await amplify.confirmPrompt('Do you want to add a Lambda Trigger for your S3 Bucket?', false)) {
-      try {
-        (answers as any).triggerFunction = await addTrigger(context, (parameters as any).resourceName, undefined, (parameters as any).adminTriggerFunction, options);
-      } catch (e) {
-        printer.error(e.message);
-      }
-    } else {
-      (answers as any).triggerFunction = 'NONE';
-    }
-  } else {
-    const triggerOperationQuestion = {
-      type: 'list',
-      name: 'triggerOperation',
-      message: 'Select from the following options',
-      choices: ['Update the Trigger', 'Remove the trigger', 'Skip Question'],
-    };
-
-    let continueWithTriggerOperationQuestion = true;
-
-    while (continueWithTriggerOperationQuestion) {
-      const triggerOperationAnswer = await inquirer.prompt([triggerOperationQuestion]);
-
-      switch (triggerOperationAnswer.triggerOperation) {
-        case 'Update the Trigger': {
-          try {
-            (answers as any).triggerFunction = await addTrigger(context, (parameters as any).resourceName, (parameters as any).triggerFunction, (parameters as any).adminTriggerFunction, options);
-            continueWithTriggerOperationQuestion = false;
-          } catch (e) {
-            printer.error(e.message);
-            continueWithTriggerOperationQuestion = true;
-          }
-          break;
-        }
-        case 'Remove the trigger': {
-          (answers as any).triggerFunction = 'NONE';
-          await removeTrigger(context, (parameters as any).resourceName, (parameters as any).triggerFunction);
-          continueWithTriggerOperationQuestion = false;
-          break;
-        }
-        case 'Skip Question': {
-          if (!(parameters as any).triggerFunction) {
-            (answers as any).triggerFunction = 'NONE';
-          }
-          continueWithTriggerOperationQuestion = false;
-          break;
-        }
-        default:
-          printer.error(`${triggerOperationAnswer.triggerOperation} not supported`);
-      }
-    }
-  }
-
-  const storageRequirements = { authSelections: 'identityPoolAndUserPool', allowUnauthenticatedIdentities };
-
-  const checkResult = await context.amplify.invokePluginMethod(context, 'auth', undefined, 'checkRequirements', [
-    storageRequirements,
-    context,
-    'storage',
-    (answers as any).resourceName,
-]);
-
-  // If auth is imported and configured, we have to throw the error instead of printing since there is no way to adjust the auth
-  // configuration.
-  if (checkResult.authImported === true && checkResult.errors && checkResult.errors.length > 0) {
-    throw new Error(checkResult.errors.join(os.EOL));
-  }
-
-  if (checkResult.errors && checkResult.errors.length > 0) {
-    printer.warn(checkResult.errors.join(os.EOL));
-  }
-
-  // If auth is not imported and there were errors, adjust or enable auth configuration
-  if (!checkResult.authEnabled || !checkResult.requirementsMet) {
-    try {
-      // If this is not set as requirement, then explicitly configure it to disabled.
-      if (storageRequirements.allowUnauthenticatedIdentities === undefined) {
-        storageRequirements.allowUnauthenticatedIdentities = false;
-      }
-
-      await context.amplify.invokePluginMethod(context, 'auth', undefined, 'externalAuthEnable', [
-    context,
-    category,
-    (answers as any).resourceName,
-    storageRequirements,
-]);
-    } catch (error) {
-      printer.error(error);
-      throw error;
-    }
-  }
-
-  // At this point we have a valid auth configuration either imported or added/updated.
-
-  Object.assign(defaultValues, answers);
-
-  const resource = defaultValues.resourceName;
-  const resourceDirPath = path.join(projectBackendDirPath, category, resource);
-
-  fs.ensureDirSync(resourceDirPath);
-
-  let props = { ...defaultValues };
-
-  if (!(parameters as any).resourceName) {
-    if (options) {
-      props = { ...defaultValues, ...options };
-    }
-    // Generate CFN file on add
-    await copyCfnTemplate( context, category, resource, props as S3CLIWalkthroughParams );
-  }
-
-  delete defaultValues.resourceName;
-  delete defaultValues.storageAccess;
-  delete defaultValues.groupPolicyMap;
-  delete defaultValues.groupList;
-  delete defaultValues.authResourceName;
-
-  const parametersFilePath = path.join(resourceDirPath, parametersFileName);
-  const jsonString = JSON.stringify(defaultValues, null, 4);
-
-  fs.writeFileSync(parametersFilePath, jsonString, 'utf8');
-
-  const storageParamsFilePath = path.join(resourceDirPath, storageParamsFileName);
-  const storageParamsString = JSON.stringify(storageParams, null, 4);
-
-  fs.writeFileSync(storageParamsFilePath, storageParamsString, 'utf8');
-
-  return resource;
-}
-***/
-
-// //Generate CLIInputs.json
-// function saveCLIInputsData( options : S3CLIWalkthroughParams ){
-//   //create inputManager
-//   const props:S3InputStateOptions = S3InputState.cliWalkThroughToCliInputParams(options);
-//   const cliInputManager: S3InputState = S3InputState.getInstance( props );
-//   const
-
-//   //save cliInputs.json
-//   cliInputManager.saveCliInputPayload( ); //Save input data
-// }
-
-// async function copyCfnTemplate(context: $TSContext, categoryName: string, resourceName: string, options: S3CLIWalkthroughParams) {
-//   const { amplify } = context;
-//   const targetDir = amplify.pathManager.getBackendDirPath();
-//   const pluginDir = __dirname;
-//   saveCLIInputsData( options );
-
-//   const copyJobs = [
-//     {
-//       dir: pluginDir,
-//       template: path.join('..', '..', '..', '..', 'resources', 'cloudformation-templates', templateFileName),
-//       target: path.join(targetDir, categoryName, resourceName, 's3-cloudformation-template.json'),
-//     },
-//   ];
-
-//   // copy over the files
-//   return await context.amplify.copyBatch(context, copyJobs, options);
-// }
 
 async function updateCfnTemplateWithGroups(context: any, oldGroupList: any, newGroupList: any, newGroupPolicyMap: any, s3ResourceName: any, authResourceName: any) {
   const groupsToBeDeleted = _.difference(oldGroupList, newGroupList);
@@ -640,6 +351,8 @@ async function updateCfnTemplateWithGroups(context: any, oldGroupList: any, newG
   fs.writeFileSync(storageCFNFilePath, storageCFNString, 'utf8');
 }
 
+
+/**
 async function removeTrigger(context: any, resourceName: any, triggerFunction: any) {
   // Update Cloudformtion file
   const projectBackendDirPath = context.amplify.pathManager.getBackendDirPath();
@@ -712,6 +425,8 @@ async function removeTrigger(context: any, resourceName: any, triggerFunction: a
   context.amplify.updateamplifyMetaAfterResourceUpdate(category, resourceName, 'dependsOn', s3Resources);
 }
 
+**/
+
 async function askTriggerFunctionTypeQuestion(): Promise<S3TriggerFunctionType>{
     const triggerTypeQuestion = [{
       type: 'list',
@@ -734,6 +449,7 @@ async function askSelectExistingFunctionToAddTrigger( lambdaResources : Array<st
   return  triggerOptionAnswer.triggerOption as string;
 }
 
+/**
 //Update the lambda function cloudformation to export it's role for use in S3
 function exportFunctionExecutionRoleInCFN( context: $TSContext, functionName: string ){
     const projectBackendDirPath = context.amplify.pathManager.getBackendDirPath();
@@ -756,6 +472,9 @@ function exportFunctionExecutionRoleInCFN( context: $TSContext, functionName: st
       printer.success(`Successfully updated resource ${functionName} locally`);
     }
 }
+
+**/
+
 //Has to Stay
 async function createNewLambdaAndUpdateCFN( context: $TSContext, _policyUUID : string ) : Promise<string>{
     const targetDir = context.amplify.pathManager.getBackendDirPath();
@@ -1064,7 +783,7 @@ function createPermissionKeys(userType: any, answers: any, selectedPermissions: 
   function addPermissionKeys(key: any, possiblePermissions: any) {
     const permissions = _.intersection(selectedPermissions, possiblePermissions).join();
 
-    answers[`s3Permissions${userType}${key}`] = !permissions ? 'DISALLOW' : permissions;
+    answers[`s3Permissions${userType}${key}`] = !permissions ? AmplifyBuildParamsPermissions.DISALLOW : permissions;
     answers[`s3${key}Policy`] = `${key}_policy_${policyId}`;
   }
 
@@ -1076,27 +795,26 @@ function createPermissionKeys(userType: any, answers: any, selectedPermissions: 
     addPermissionKeys('Private', maxPrivate);
   }
 
-  answers[`${userType}AllowList`] = selectedPermissions.includes('s3:GetObject') ? 'ALLOW' : 'DISALLOW';
+  answers[`${userType}AllowList`] = selectedPermissions.includes('s3:GetObject') ? 'ALLOW' : AmplifyBuildParamsPermissions.DISALLOW;
   answers.s3ReadPolicy = `read_policy_${policyId}`;
 
   // double-check to make sure guest is denied
   if (answers.storageAccess !== 'authAndGuest') {
-    answers.s3PermissionsGuestPublic = 'DISALLOW';
-    answers.s3PermissionsGuestUploads = 'DISALLOW';
-    answers.GuestAllowList = 'DISALLOW';
+    answers.s3PermissionsGuestPublic = AmplifyBuildParamsPermissions.DISALLOW;
+    answers.s3PermissionsGuestUploads = AmplifyBuildParamsPermissions.DISALLOW;
+    answers.GuestAllowList = AmplifyBuildParamsPermissions.DISALLOW;
   }
 }
 
 function removeAuthUnauthAccess(answers: any) {
-  answers.s3PermissionsGuestPublic = 'DISALLOW';
-  answers.s3PermissionsGuestUploads = 'DISALLOW';
-  answers.GuestAllowList = 'DISALLOW';
-
-  answers.s3PermissionsAuthenticatedPublic = 'DISALLOW';
-  answers.s3PermissionsAuthenticatedProtected = 'DISALLOW';
-  answers.s3PermissionsAuthenticatedPrivate = 'DISALLOW';
-  answers.s3PermissionsAuthenticatedUploads = 'DISALLOW';
-  answers.AuthenticatedAllowList = 'DISALLOW';
+  answers.s3PermissionsGuestPublic = AmplifyBuildParamsPermissions.DISALLOW;
+  answers.s3PermissionsGuestUploads = AmplifyBuildParamsPermissions.DISALLOW;
+  answers.GuestAllowList = AmplifyBuildParamsPermissions.DISALLOW;
+  answers.s3PermissionsAuthenticatedPublic = AmplifyBuildParamsPermissions.DISALLOW;
+  answers.s3PermissionsAuthenticatedProtected = AmplifyBuildParamsPermissions.DISALLOW;
+  answers.s3PermissionsAuthenticatedPrivate = AmplifyBuildParamsPermissions.DISALLOW;
+  answers.s3PermissionsAuthenticatedUploads = AmplifyBuildParamsPermissions.DISALLOW;
+  answers.AuthenticatedAllowList = AmplifyBuildParamsPermissions.DISALLOW;
 }
 
 export const resourceAlreadyExists = (context: any) => {

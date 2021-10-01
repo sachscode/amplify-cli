@@ -5,6 +5,8 @@ import { CLIInputSchemaValidator } from 'amplify-cli-core';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { AmplifyS3ResourceInputParameters } from '../cdk-stack-builder/types';
+import { conditionallyAskGuestPermissionQuestion } from './s3-questions';
+import * as cdk from '@aws-cdk/core';
 
 type ResourcRefType =  {
     Ref: string
@@ -227,16 +229,6 @@ export class S3InputState {
     return inputProps;
   }
 
-  public getCliInputParams():AmplifyS3ResourceInputParameters{
-     const userInput : S3UserInputs = this.getUserInput();
-     const cliInputParams: AmplifyS3ResourceInputParameters = {
-        bucketName : userInput.bucketName,
-        triggerFunction: ( userInput.triggerFunction && userInput.triggerFunction !== "NONE")? userInput.triggerFunction:undefined,
-        selectedGuestPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.guestAccess),
-        selectedAuthenticatedPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.authAccess),
-     }
-     return cliInputParams;
-  }
 
 updateInputPayload( props: S3InputStateOptions ){
     // Overwrite

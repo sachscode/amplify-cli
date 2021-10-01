@@ -141,11 +141,12 @@ export async function conditionallyAskWhoHasAccessQuestion( userGroupPermissionS
 
 export async function askCRUDQuestion( role: S3UserAccessRole , groupName :string|undefined = undefined, context: $TSContext, defaultValues: S3UserInputs): Promise<Array<S3PermissionType>>{
   const roleDefaultValues = getRoleAccessDefaultValues(role, groupName, defaultValues);
+  const userRole = (role=== S3UserAccessRole.GROUP)?groupName:role;
   console.log("SACPCDEBUG: Ask CRUD Question: defaultValues: ",possibleCRUDOperations, " default: ", roleDefaultValues );
   const question = [{
     name: 'permissions',
     type: 'checkbox',
-    message: `What kind of access do you want for ${role} users?`,
+    message: `What kind of access do you want for ${userRole} users?`,
     choices: possibleCRUDOperations,
     default: roleDefaultValues,
     validate: (inputs : any[]) => {
