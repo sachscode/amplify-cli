@@ -3,11 +3,16 @@ import {S3CFNPermissionType, S3InputState} from '../service-walkthroughs/s3-user
 import {AmplifyS3ResourceCfnStack} from './s3-stack-builder';
 import * as cdk from '@aws-cdk/core';
 import {App} from '@aws-cdk/core';
-import {AmplifyBuildParamsPermissions, AmplifyS3ResourceInputParameters} from './types'
+import {AmplifyBuildParamsPermissions, AmplifyS3ResourceInputParameters, AmplifyS3ResourceTemplate} from './types'
 import * as fs from 'fs-extra';
-import { $TSContext, AmplifyCategories, JSONUtilities } from 'amplify-cli-core';
+import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager } from 'amplify-cli-core';
+import { formatter, printer } from 'amplify-prompts';
 import path from 'path';
 
+//To be imported after merge into aws-amplify:extOverrides
+async function buildOverrideDir(backendDir : string, overrideFilePath: string):Promise<boolean>{
+    return false;
+}
 
 
 type AmplifyCfnParamType = {
@@ -15,7 +20,6 @@ type AmplifyCfnParamType = {
     paramType : string
     default? : string
 }
-
 
 
 //stack transform for S3
@@ -38,7 +42,7 @@ export class AmplifyS3ResourceStackTransform {
         this.resourceName = resourceName;
     }
 
-    async transform(context : $TSContext) {
+    async transform() {
         //SACPC!: Validation logic is broken. TBD
         // const validationResult =   await this.cliInputsState.isCLIInputsValid();
         // console.log("SACPCDEBUG: TRANSFORM: ValidationResult: ", validationResult);
@@ -47,7 +51,7 @@ export class AmplifyS3ResourceStackTransform {
         if ( validationResult ) {
             this.generateCfnInputParameters();
             // Generate cloudformation stack from cli-inputs.json
-            await this.generateStack(context);
+            await this.generateStack(this.context);
 
             // Modify cloudformation files based on overrides
             this.applyOverrides()
@@ -78,7 +82,6 @@ export class AmplifyS3ResourceStackTransform {
 
         this.cfnInputParams = {
             bucketName : userInput.bucketName,
-            triggerFunction: ( userInput.triggerFunction && userInput.triggerFunction !== "NONE")? userInput.triggerFunction:undefined,
             selectedGuestPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.guestAccess),
             selectedAuthenticatedPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.authAccess),
             unauthRoleName: {
@@ -88,11 +91,16 @@ export class AmplifyS3ResourceStackTransform {
                 "Ref": "AuthRoleName"
             }
         }
+        if ( userInput.triggerFunction && userInput.triggerFunction !== "NONE") {
+           this.cfnInputParams.triggerFunction = userInput.triggerFunction;
+        }
         this.cfnInputParams.s3PrivatePolicy = `Private_policy_${userInput.policyUUID}`;
         this.cfnInputParams.s3ProtectedPolicy =  `Protected_policy_${userInput.policyUUID}`;
         this.cfnInputParams.s3PublicPolicy = `Public_policy_${userInput.policyUUID}`;
         this.cfnInputParams.s3ReadPolicy = `read_policy_${userInput.policyUUID}`;
         this.cfnInputParams.s3UploadsPolicy = `Uploads_policy_${userInput.policyUUID}`;
+        this.cfnInputParams.authPolicyName = `s3_amplify_${userInput.policyUUID}`;
+        this.cfnInputParams.unauthPolicyName = `s3_amplify_${userInput.policyUUID}`;
         this.cfnInputParams.AuthenticatedAllowList = this._getAuthGuestListPermission( S3PermissionType.LIST, userInput.authAccess)
         this.cfnInputParams.GuestAllowList = this._getAuthGuestListPermission( S3PermissionType.LIST, userInput.guestAccess)
         this.cfnInputParams.s3PermissionsAuthenticatedPrivate = this._getPublicPrivatePermissions(defaultS3PermissionsAuthenticatedPrivate, userInput.authAccess);
@@ -101,8 +109,6 @@ export class AmplifyS3ResourceStackTransform {
         this.cfnInputParams.s3PermissionsAuthenticatedUploads = this._getPublicPrivatePermissions(defaultS3PermissionsAuthenticatedUploads, userInput.authAccess);
         this.cfnInputParams.s3PermissionsGuestPublic = this._getPublicPrivatePermissions( defaultS3PermissionsGuestPublic, userInput.guestAccess);
         this.cfnInputParams.s3PermissionsGuestUploads = this._getPublicPrivatePermissions( defaultS3PermissionsGuestUploads, userInput.guestAccess);
-        this.cfnInputParams.authPolicyName = `s3_amplify_${userInput.policyUUID}`;
-        this.cfnInputParams.unauthPolicyName = `s3_amplify_${userInput.policyUUID}`;
     }
 
     _getAuthGuestListPermission( checkOperation : S3PermissionType, authPermissions : Array<S3PermissionType>|undefined ){
@@ -131,9 +137,34 @@ export class AmplifyS3ResourceStackTransform {
     }
 
     // Modify cloudformation files based on overrides
-    applyOverrides() {
-        // Build overrides
-        // Get modified props from overrides
+    async applyOverrides() {
+        const backendDir = pathManager.getBackendDirPath();
+        const overrideFilePath = pathManager.getResourceDirectoryPath(undefined, AmplifyCategories.STORAGE, this.resourceName);
+        const isBuild = await buildOverrideDir(backendDir, overrideFilePath).catch(error => {
+            printer.warn(`Skipping build as ${error.message}`);
+            return false;
+        });
+        //Skip if packageManager or override.ts not found
+        if (isBuild) {
+            const { overrideProps } = await import(path.join(overrideFilePath, 'build', 'override.js')).catch(error => {
+            formatter.list(['No override File Found', `To override ${this.resourceName} run amplify override auth ${this.resourceName} `]);
+            return undefined;
+            });
+            // pass stack object
+            //TODO: Check Script Options
+            if (typeof overrideProps === 'function' && overrideProps) {
+                try {
+                    this.resourceTemplateObj = overrideProps(this.resourceTemplateObj as AmplifyS3ResourceTemplate);
+                    //The vm module enables compiling and running code within V8 Virtual Machine contexts. The vm module is not a security mechanism. Do not use it to run untrusted code.
+                    // const script = new vm.Script(overrideCode);
+                    // script.runInContext(vm.createContext(cognitoStackTemplateObj));
+                    return;
+                } catch (error: $TSAny) {
+                    throw new Error(error);
+                }
+            }
+        }
+
     }
 
     saveBuildFiles() {

@@ -149,7 +149,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     public addParameters( ){
         let s3CfnParams : Array<AmplifyCfnParamType> = [
             {
-                params : ["env", "bucketName","triggerFunction", "authRoleName", "unauthRoleName", "authPolicyName", "unauthPolicyName"],
+                params : ["env", "bucketName", "authRoleName", "unauthRoleName", "authPolicyName", "unauthPolicyName"],
                 paramType : 'String'
             },
             {
@@ -176,7 +176,6 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             const triggerFunctionARN = `function${this._props.triggerFunction}Arn`;
             const triggerFunctionName = `function${this._props.triggerFunction}Name`;
             const triggerFunctionLambdaExecutionRole = `function${this._props.triggerFunction}LambdaExecutionRole`;
-
             const params = [triggerFunctionARN,
                             triggerFunctionName,
                             triggerFunctionLambdaExecutionRole]
@@ -189,6 +188,10 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                                 } )
                         } );
 
+            s3CfnParams.push({
+                params : [ "triggerFunction" ],
+                paramType: 'String',
+            });
         }
 
         // let s3CfnDependsOnParams : Array<AmplifyCfnParamType> = this._getDependsOnParameters()

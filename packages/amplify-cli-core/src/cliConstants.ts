@@ -23,5 +23,13 @@ export const AmplifyCategories = {
 export const AmplifySupportedService = {
     S3 : 's3',
     DYNAMODB : 'DynamoDB',
-    COGNITO : 'Cognito'
+    COGNITO : 'Cognito',
+    LAMBDA : 'Lambda'
 }
+
+
+export type IAmplifyResource = {
+    category: string;
+    resourceName: string;
+    service: string;
+};
