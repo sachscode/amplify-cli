@@ -699,5 +699,21 @@ export class FeatureFlags {
         defaultValueForNewProjects: 1,
       },
     ]);
+
+    // FF for overrides
+    this.registerFlag('overrides', [
+      {
+        name: 'auth',
+        type: 'boolean',
+        defaultValueForExistingProjects: false,
+        defaultValueForNewProjects: true,
+      },
+      {
+        name: 'project',
+        type: 'boolean',
+        defaultValueForExistingProjects: false,
+        defaultValueForNewProjects: true,
+      },
+    ]);
   };
 }
