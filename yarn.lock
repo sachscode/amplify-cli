@@ -1085,6 +1085,18 @@
   resolved "https://registry.yarnpkg.com/@aws-cdk/region-info/-/region-info-1.124.0.tgz#541a6372b89a3385cc0cf3e2d71f1b917503be24"
   integrity sha512-v8Msal5kCv5Juscj6Dxjzx4HHiYKD3rWDLBAvaDN/V3zCNGga3s8M2aM/n7po7HLjVW333VzyuOCHBYnSrtMIg==
 
+"@aws-cdk/region-info@1.72.0":
+  version "1.72.0"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/region-info/-/region-info-1.72.0.tgz#62b9a2b69fcd89073ba423b5ddb999134d0da7ed"
+  integrity sha512-fzsqHX842OZ6I1tOTrScFN5PJvintrkbHU+MekKWYWXWBuGvGCnyC8Lx+NRdfGpWUWo0Wv8ILjOQ4MlS8STBCg==
+
+"@aws-cdk/yaml-cfn@1.72.0":
+  version "1.72.0"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/yaml-cfn/-/yaml-cfn-1.72.0.tgz#4acaad32e5304f96bbf0423dba916005caf41940"
+  integrity sha512-Bs7/sRTfuzTehj3kq8N5ZmtffMg/D1TgEsfL8b0fhhOndAIKvPOEZ5NIJn/hf5VZqAah9l5yLXJcpMuTJPxLNw==
+  dependencies:
+    yaml "1.10.0"
+
 "@aws-crypto/crc32@^1.0.0":
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@aws-crypto/crc32/-/crc32-1.1.0.tgz#aff048e207798fad0b0e7765b12d474c273779b6"
@@ -6995,7 +7007,7 @@ archiver-utils@^2.1.0:
     normalize-path "^3.0.0"
     readable-stream "^2.0.0"
 
-archiver@^5.3.0:
+archiver@^5.0.2, archiver@^5.3.0:
   version "5.3.0"
   resolved "https://registry.yarnpkg.com/archiver/-/archiver-5.3.0.tgz#dd3e097624481741df626267564f7dd8640a45ba"
   integrity sha512-iUw+oDwK0fgNpvveEsdQ0Ase6IIKztBJU2U0E9MzszMfmVVUyv1QJhS2ITW9ZCqx8dktAxVAjWWkKehuZE8OPg==
@@ -7469,6 +7481,35 @@ aws-cdk@~1.124.0:
     yaml "1.10.2"
     yargs "^16.2.0"
 
+aws-cdk@~1.72.0:
+  version "1.72.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-1.72.0.tgz#2eb44d01f91d6bc71d2690f2b550a9e463a35470"
+  integrity sha512-90oRBGWF8Ny9gSfd6GkqonbOutW0ewyNhnwQjSEtV2aL2ydmRz8fFZbVq8noFwgEjx5vDMX/B3R1RcI9KDrDcw==
+  dependencies:
+    "@aws-cdk/cloud-assembly-schema" "1.72.0"
+    "@aws-cdk/cloudformation-diff" "1.72.0"
+    "@aws-cdk/cx-api" "1.72.0"
+    "@aws-cdk/region-info" "1.72.0"
+    "@aws-cdk/yaml-cfn" "1.72.0"
+    archiver "^5.0.2"
+    aws-sdk "^2.785.0"
+    camelcase "^6.2.0"
+    cdk-assets "1.72.0"
+    colors "^1.4.0"
+    decamelize "^4.0.0"
+    fs-extra "^9.0.1"
+    glob "^7.1.6"
+    json-diff "^0.5.4"
+    minimatch ">=3.0"
+    promptly "^3.1.0"
+    proxy-agent "^4.0.0"
+    semver "^7.3.2"
+    source-map-support "^0.5.19"
+    table "^6.0.3"
+    uuid "^8.3.1"
+    wrap-ansi "^7.0.0"
+    yargs "^16.1.0"
+
 aws-sdk-mock@^5.1.0:
   version "5.2.2"
   resolved "https://registry.yarnpkg.com/aws-sdk-mock/-/aws-sdk-mock-5.2.2.tgz#a1a815dff7c6a215717e14b099d04ce0a3ab0f2a"
@@ -7508,10 +7549,17 @@ aws-sdk@^2.518.0, aws-sdk@^2.814.0, aws-sdk@^2.848.0, aws-sdk@^2.928.0, aws-sdk@
     uuid "3.3.2"
     xml2js "0.4.19"
 
+<<<<<<< HEAD
 aws-sdk@^2.979.0:
   version "2.993.0"
   resolved "https://registry.yarnpkg.com/aws-sdk/-/aws-sdk-2.993.0.tgz#872c038b9cf78d35d6d90d99fd9b2973f99209ca"
   integrity sha512-uAxPVkGM0+hWt+OmFUtNgQmmo3tQUW1MJD8wBWFpfw97QpG2WPMv6fEFBJmuaVt0LkElgTs+9oKJsu9WkPIC9Q==
+=======
+aws-sdk@^2.785.0:
+  version "2.978.0"
+  resolved "https://registry.yarnpkg.com/aws-sdk/-/aws-sdk-2.978.0.tgz#aba16756aab7e46d476d8f160a10a05ef3712afd"
+  integrity sha512-UO1HP2b9FFtPhc5KbzEJ9oMBdzCmVv9nQTb+yIEh6SajcaErmK/ryleLOuPq9EsirE6wgb6mtf2qodRFucUA3g==
+>>>>>>> 2f608a3bd (fix: add schema json for cli-inputs)
   dependencies:
     buffer "4.9.2"
     events "1.1.1"
@@ -8533,6 +8581,18 @@ cdk-assets@1.124.0:
     mime "^2.5.2"
     yargs "^16.2.0"
 
+cdk-assets@1.72.0:
+  version "1.72.0"
+  resolved "https://registry.yarnpkg.com/cdk-assets/-/cdk-assets-1.72.0.tgz#4c78a0d1b93137e7f9a544591e9d840bf9fb54f5"
+  integrity sha512-klP3B6qShE5qSnsE+IVCe7rX8aQMSwF7lurDrWSTIZMsnGhBrdqDtdrk/mXWIfYokdgRxJ98tykWIrrQVDkzZQ==
+  dependencies:
+    "@aws-cdk/cloud-assembly-schema" "1.72.0"
+    "@aws-cdk/cx-api" "1.72.0"
+    archiver "^5.0.2"
+    aws-sdk "^2.785.0"
+    glob "^7.1.6"
+    yargs "^16.1.0"
+
 cfn-lint@^1.9.7:
   version "1.9.7"
   resolved "https://registry.yarnpkg.com/cfn-lint/-/cfn-lint-1.9.7.tgz#c2449f2319184bfaa1de0a7d71d2096e565a06d2"
@@ -9242,6 +9302,11 @@ constants-browserify@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/constants-browserify/-/constants-browserify-1.0.0.tgz#c20b96d8c617748aaf1c16021760cd27fcb8cb75"
   integrity sha1-wguW2MYXdIqvHBYCF2DNJ/y4y3U=
+
+constructs@^3.2.0:
+  version "3.3.134"
+  resolved "https://registry.yarnpkg.com/constructs/-/constructs-3.3.134.tgz#8958be016d980abcea0230d2f1c54c1e1cca81c0"
+  integrity sha512-SKlG9AVkjXKbaNdnFCWs0F7q9knacP89zwxVrkCZYVts8C3YfZWupMcYCLncCKAECh0io299iT4ZuIIDJ0hrSQ==
 
 constructs@^3.3.125, constructs@^3.3.69:
   version "3.3.126"
@@ -18871,7 +18936,7 @@ promise@^8.1.0:
   dependencies:
     asap "~2.0.6"
 
-promptly@^3.2.0:
+promptly@^3.1.0, promptly@^3.2.0:
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/promptly/-/promptly-3.2.0.tgz#a5517fbbf59bd31c1751d4e1d9bef1714f42b9d8"
   integrity sha512-WnR9obtgW+rG4oUV3hSnNGl1pHm3V1H/qD9iJBumGSmVsSC5HpZOLuu8qdMb6yCItGfT7dcRszejr/5P3i9Pug==
@@ -18933,10 +18998,17 @@ proxy-addr@~2.0.5:
     forwarded "0.2.0"
     ipaddr.js "1.9.1"
 
+<<<<<<< HEAD
 proxy-agent@^5.0.0:
   version "5.0.0"
   resolved "https://registry.npmjs.org/proxy-agent/-/proxy-agent-5.0.0.tgz#d31405c10d6e8431fde96cba7a0c027ce01d633b"
   integrity sha512-gkH7BkvLVkSfX9Dk27W6TyNOWWZWRilRfk1XxGNWOYJ2TuedAv1yFpCaU9QSBmBe716XOTNpYNOzhysyw8xn7g==
+=======
+proxy-agent@^4.0.0, proxy-agent@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/proxy-agent/-/proxy-agent-4.0.1.tgz#326c3250776c7044cd19655ccbfadf2e065a045c"
+  integrity sha512-ODnQnW2jc/FUVwHHuaZEfN5otg/fMbvMxz9nMSUQfJ9JU7q2SZvSULSsjLloVgJOiv9yhc8GlNMKc4GkFmcVEA==
+>>>>>>> 2f608a3bd (fix: add schema json for cli-inputs)
   dependencies:
     agent-base "^6.0.0"
     debug "4"
@@ -21353,7 +21425,7 @@ sync-fetch@0.3.0:
     buffer "^5.7.0"
     node-fetch "^2.6.1"
 
-table@^6.0.9, table@^6.7.1:
+table@^6.0.3, table@^6.0.9, table@^6.7.1:
   version "6.7.1"
   resolved "https://registry.yarnpkg.com/table/-/table-6.7.1.tgz#ee05592b7143831a8c94f3cee6aae4c1ccef33e2"
   integrity sha512-ZGum47Yi6KOOFDE8m223td53ath2enHcYLgOCjGr5ngu8bdIARQk6mN/wRMv4yMRcHnCSnHbCEha4sobQx5yWg==
@@ -22371,7 +22443,7 @@ uuid@7.0.1:
   resolved "https://registry.yarnpkg.com/uuid/-/uuid-7.0.1.tgz#95ed6ff3d8c881cbf85f0f05cc3915ef994818ef"
   integrity sha512-yqjRXZzSJm9Dbl84H2VDHpM3zMjzSJQ+hn6C4zqd5ilW+7P4ZmLEEqwho9LjP+tGuZlF4xrHQXT0h9QZUS/pWA==
 
-uuid@^8.0.0, uuid@^8.2.0, uuid@^8.3.0, uuid@^8.3.2:
+uuid@^8.0.0, uuid@^8.2.0, uuid@^8.3.0, uuid@^8.3.1, uuid@^8.3.2:
   version "8.3.2"
   resolved "https://registry.yarnpkg.com/uuid/-/uuid-8.3.2.tgz#80d5b5ced271bb9af6c445f21a1a04c606cefbe2"
   integrity sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==
@@ -23221,6 +23293,11 @@ yallist@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/yallist/-/yallist-4.0.0.tgz#9bb92790d9c0effec63be73519e11a35019a3a72"
   integrity sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==
+
+yaml@1.10.0:
+  version "1.10.0"
+  resolved "https://registry.yarnpkg.com/yaml/-/yaml-1.10.0.tgz#3b593add944876077d4d683fee01081bd9fff31e"
+  integrity sha512-yr2icI4glYaNG+KWONODapy2/jDdMSDnrONSjblABjD9B4Z5LgiircSt8m8sRZFNi08kG9Sm0uSHtEmP3zaEGg==
 
 yaml@1.10.2, yaml@^1.10.0, yaml@^1.7.2:
   version "1.10.2"

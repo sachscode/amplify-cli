@@ -21,15 +21,15 @@ export const AmplifyCategories = {
 };
 
 export const AmplifySupportedService = {
-  S3: 'S3',
-  DYNAMODB: 'DynamoDB',
-  COGNITO: 'Cognito',
-};
+    S3 : 's3',
+    DYNAMODB : 'DynamoDB',
+    COGNITO : 'Cognito',
+    LAMBDA : 'Lambda'
+}
 
-export const overriddenCategories = [AmplifyCategories.AUTH, AmplifyCategories.STORAGE];
 
 export type IAmplifyResource = {
-  category: string;
-  resourceName: string;
-  service: string;
+    category: string;
+    resourceName: string;
+    service: string;
 };

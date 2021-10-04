@@ -27,7 +27,11 @@ export * from './overrides-manager';
 export * from './hooks';
 export * from './cliConstants';
 export * from './category-interfaces';
+export * from "./cliViewAPI";
 export {TypeDef, CLIInputSchemaGenerator, CLIInputSchemaValidator} from "./categoryBaseGenSchema";
+export {AmplifyCategories, AmplifySupportedService, CLISubCommands, SecretFileMode} from './cliConstants';
+
+
 
 // Temporary types until we can finish full type definition across the whole CLI
 
@@ -285,6 +289,7 @@ interface AmplifyToolkit {
     resourceName: string,
     metaResourceKey: string,
     metaResourceData?: $TSAny,
+    overwriteIfExists? : boolean
   ) => $TSMeta;
   updateamplifyMetaAfterResourceAdd: (
     category: string,
@@ -316,7 +321,7 @@ interface AmplifyToolkit {
   getTriggerPermissions: () => $TSAny;
   getTriggerEnvVariables: () => $TSAny;
   getTriggerEnvInputs: () => $TSAny;
-  getUserPoolGroupList: () => $TSAny[];
+  getUserPoolGroupList: (context:$TSContext) => $TSAny;
   forceRemoveResource: () => $TSAny;
   writeObjectAsJson: () => $TSAny;
   hashDir: (dir: string, exclude: string[]) => Promise<string>;

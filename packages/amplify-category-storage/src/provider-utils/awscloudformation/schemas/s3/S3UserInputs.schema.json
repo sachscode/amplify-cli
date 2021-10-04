@@ -7,56 +7,60 @@
         "bucketName": {
             "type": "string"
         },
-        "storageAccess": {
-            "$ref": "#/definitions/S3AccessType"
-        },
-        "selectedGuestPermissions": {
-            "type": "array",
-            "items": {
-                "enum": [
-                    "DELETE_OBJECT",
-                    "GET_OBJECT",
-                    "LIST_BUCKET",
-                    "PUT_OBJECT"
-                ],
-                "type": "string"
-            }
-        },
-        "selectedAuthenticatedPermissions": {
-            "type": "array",
-            "items": {
-                "enum": [
-                    "DELETE_OBJECT",
-                    "GET_OBJECT",
-                    "LIST_BUCKET",
-                    "PUT_OBJECT"
-                ],
-                "type": "string"
-            }
-        },
-        "isTriggerEnabled": {
-            "type": "boolean"
-        },
-        "triggerFunctionName": {
+        "policyUUID": {
             "type": "string"
-        }
-    },
-    "required": [
-        "bucketName",
-        "isTriggerEnabled",
-        "resourceName",
-        "selectedAuthenticatedPermissions",
-        "selectedGuestPermissions",
-        "storageAccess",
-        "triggerFunctionName"
-    ],
-    "definitions": {
-        "S3AccessType": {
+        },
+        "storageAccess": {
             "enum": [
                 "auth",
                 "authAndGuest"
             ],
             "type": "string"
+        },
+        "guestAccess": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "CREATE",
+                    "DELETE",
+                    "LIST",
+                    "READ"
+                ],
+                "type": "string"
+            }
+        },
+        "authAccess": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "CREATE",
+                    "DELETE",
+                    "LIST",
+                    "READ"
+                ],
+                "type": "string"
+            }
+        },
+        "triggerFunction": {
+            "type": "string"
+        },
+        "groupAccess": {
+            "$ref": "#/definitions/Record<string,S3PermissionType[]>"
+        },
+        "groupList": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "authAccess",
+        "guestAccess"
+    ],
+    "definitions": {
+        "Record<string,S3PermissionType[]>": {
+            "type": "object"
         }
     },
     "$schema": "http://json-schema.org/draft-07/schema#"

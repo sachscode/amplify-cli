@@ -23,6 +23,9 @@
     "test-watch": "jest --watch"
   },
   "dependencies": {
+    "@aws-cdk/aws-iam": "~1.72.0",
+    "@aws-cdk/aws-lambda": "~1.72.0",
+    "@aws-cdk/core": "~1.72.0",    
     "amplify-cli-core": "1.30.0",
     "amplify-headless-interface": "1.10.0",
     "amplify-util-headless-input": "1.5.4",
