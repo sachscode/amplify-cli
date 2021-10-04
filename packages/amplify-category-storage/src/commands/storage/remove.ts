@@ -1,19 +1,19 @@
-import { $TSAny, $TSContext } from 'amplify-cli-core';
-import { printer } from 'amplify-prompts';
-import { categoryName } from '../../constants';
 
-export const name = 'remove'; // subcommand
+import { AmplifyCategories, CLISubCommands } from 'amplify-cli-core';
 
-export async function run(context: $TSContext) {
-  const { amplify, parameters } = context;
-  const resourceName = parameters.first;
+module.exports = {
+  name: CLISubCommands.REMOVE,
+  run: async (context: any) => {
+    const { amplify, parameters } = context;
+    const resourceName = parameters.first;
 
-  return amplify.removeResource(context, categoryName, resourceName).catch(async (err: $TSAny) => {
-    printer.info(err.stack);
-    printer.error('An error occurred when removing the storage resource');
+    return amplify.removeResource(context, AmplifyCategories.STORAGE, resourceName).catch((err: any) => {
+      context.print.info(err.stack);
+      context.print.error('An error occurred when removing the storage resource');
 
-    await context.usageData.emitError(err);
+      context.usageData.emitError(err);
 
-    process.exitCode = 1;
-  });
-}
+      process.exitCode = 1;
+    });
+  },
+};

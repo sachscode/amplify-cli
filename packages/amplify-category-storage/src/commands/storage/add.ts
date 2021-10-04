@@ -1,59 +1,61 @@
-import { $TSContext } from 'amplify-cli-core';
-import { printer } from 'amplify-prompts';
-import { categoryName } from '../../constants';
 
-export const name = 'add'; // subcommand
+import { AmplifyCategories, CLISubCommands } from 'amplify-cli-core';
 
 let options;
 
-export async function run(context: $TSContext) {
-  const { amplify } = context;
-  const serviceMetadata = (await import('../../provider-utils/supported-services')).supportedServices;
-  return amplify
-    .serviceSelectionPrompt(context, categoryName, serviceMetadata)
-    .then(async result => {
-      options = {
-        service: result.service,
-        providerPlugin: result.providerName,
-      };
+module.exports = {
+  name: CLISubCommands.ADD,
+  run: async (context: any) => {
+    const { amplify } = context;
+    const serviceMetadata = require('../../provider-utils/supported-services').supportedServices;
+    return amplify
+      .serviceSelectionPrompt(context, AmplifyCategories.STORAGE, serviceMetadata)
+      .then((result: any) => {
+        options = {
+          service: result.service,
+          providerPlugin: result.providerName,
+        };
 
-      const providerController = await import(`../../provider-utils/${result.providerName}`);
+        const providerController = require(`../../provider-utils/${result.providerName}`);
 
-      if (!providerController) {
-        printer.error('Provider not configured for this category');
-        return;
-      }
+        if (!providerController) {
+          context.print.error('Provider not configured for this category');
+          return;
+        }
 
-      return providerController.addResource(context, categoryName, result.service, options);
-    })
-    .then(resourceName => {
-      if (resourceName) {
-        printer.success(`Successfully added resource ${resourceName} locally`);
-        printer.info('');
-        printer.warn(
-          'If a user is part of a user pool group, run "amplify update storage" to enable IAM group policies for CRUD operations',
-        );
-        printer.success('Some next steps:');
-        printer.info('"amplify push" builds all of your local backend resources and provisions them in the cloud');
-        printer.info(
-          '"amplify publish" builds all of your local backend and front-end resources (if you added hosting category) and provisions them in the cloud',
-        );
-        printer.info('');
-      }
-    })
-    .catch(async err => {
-      if (err.message) {
-        printer.error(err.message);
-      }
+        return providerController.addResource(context, AmplifyCategories.STORAGE, result.service, options);
+      })
+      .then((resourceName: any) => {
+        if (resourceName) {
+          const { print } = context;
 
-      printer.error('An error occurred when adding the storage resource');
+          print.success(`Successfully added resource ${resourceName} locally`);
+          print.info('');
+          print.warning(
+            'If a user is part of a user pool group, run "amplify update storage" to enable IAM group policies for CRUD operations',
+          );
+          print.success('Some next steps:');
+          print.info('"amplify push" builds all of your local backend resources and provisions them in the cloud');
+          print.info(
+            '"amplify publish" builds all of your local backend and front-end resources (if you added hosting category) and provisions them in the cloud',
+          );
+          print.info('');
+        }
+      })
+      .catch((err: any) => {
+        if (err.message) {
+          context.print.error(err.message);
+        }
 
-      if (err.stack) {
-        printer.info(err.stack);
-      }
+        context.print.error('An error occurred when adding the storage resource');
 
-      await context.usageData.emitError(err);
+        if (err.stack) {
+          context.print.info(err.stack);
+        }
 
-      process.exitCode = 1;
-    });
-}
+        context.usageData.emitError(err);
+
+        process.exitCode = 1;
+      });
+  },
+};

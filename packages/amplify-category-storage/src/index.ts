@@ -1,11 +1,7 @@
 import * as path from 'path';
-import sequential from 'promise-sequential';
-import { printer } from 'amplify-prompts';
+const sequential = require('promise-sequential');
 import { updateConfigOnEnvInit } from './provider-utils/awscloudformation';
-import { $TSContext, AmplifyCategories, IAmplifyResource, pathManager } from 'amplify-cli-core';
-import { DDBStackTransform } from './provider-utils/awscloudformation/cdk-stack-builder/ddb-stack-transform';
-import { DynamoDBInputState } from './provider-utils/awscloudformation/service-walkthroughs/dynamoDB-input-state';
-export { AmplifyDDBResourceTemplate } from './provider-utils/awscloudformation/cdk-stack-builder/types';
+import { AmplifyCategories } from 'amplify-cli-core';
 
 async function add(context: any, providerName: any, service: any) {
   const options = {
@@ -16,7 +12,7 @@ async function add(context: any, providerName: any, service: any) {
   const providerController = require(`./provider-utils/${providerName}`);
 
   if (!providerController) {
-    printer.error('Provider not configured for this category');
+    context.print.error('Provider not configured for this category');
     return;
   }
 
@@ -24,7 +20,7 @@ async function add(context: any, providerName: any, service: any) {
 }
 
 async function categoryConsole(context: any) {
-  printer.info(`to be implemented: ${AmplifyCategories.STORAGE} console`);
+  context.print.info(`to be implemented: ${AmplifyCategories.STORAGE} console`);
 }
 
 async function migrateStorageCategory(context: any) {
@@ -39,18 +35,13 @@ async function migrateStorageCategory(context: any) {
 
           if (providerController) {
             migrateResourcePromises.push(
-              providerController.migrateResource(
-                context,
-                projectPath,
-                amplifyMeta[AmplifyCategories.STORAGE][resourceName].service,
-                resourceName,
-              ),
+              providerController.migrateResource(context, projectPath, amplifyMeta[AmplifyCategories.STORAGE][resourceName].service, resourceName),
             );
           } else {
-            printer.error(`Provider not configured for ${AmplifyCategories.STORAGE}: ${resourceName}`);
+            context.print.error(`Provider not configured for ${AmplifyCategories.STORAGE}: ${resourceName}`);
           }
         } catch (e) {
-          printer.warn(`Could not run migration for ${AmplifyCategories.STORAGE}: ${resourceName}`);
+          context.print.warning(`Could not run migration for ${AmplifyCategories.STORAGE}: ${resourceName}`);
           throw e;
         }
       });
@@ -58,22 +49,6 @@ async function migrateStorageCategory(context: any) {
   });
 
   await Promise.all(migrateResourcePromises);
-}
-
-async function transformCategoryStack(context: $TSContext, resource: IAmplifyResource) {
-  if (resource.service === 'DynamoDB') {
-    if (canResourceBeTransformed(resource.resourceName)) {
-      const stackGenerator = new DDBStackTransform(resource.resourceName);
-      stackGenerator.transform();
-    }
-  } else if (resource.service === 'S3') {
-    // Not yet implemented
-  }
-}
-
-function canResourceBeTransformed(resourceName: string) {
-  const resourceInputState = new DynamoDBInputState(resourceName);
-  return resourceInputState.cliInputFileExists();
 }
 
 async function getPermissionPolicies(context: any, resourceOpsMapping: any) {
@@ -107,12 +82,12 @@ async function getPermissionPolicies(context: any, resourceOpsMapping: any) {
         } else {
           permissionPolicies.push(policy);
         }
-        resourceAttributes.push({ resourceName, attributes, storageCategory });
+        resourceAttributes.push( { resourceName, attributes, storageCategory });
       } else {
-        printer.error(`Provider not configured for ${storageCategory}: ${resourceName}`);
+        context.print.error(`Provider not configured for ${storageCategory}: ${resourceName}`);
       }
     } catch (e) {
-      printer.warn(`Could not get policies for ${storageCategory}: ${resourceName}`);
+      context.print.warning(`Could not get policies for ${storageCategory}: ${resourceName}`);
       throw e;
     }
   });
@@ -135,8 +110,8 @@ async function executeAmplifyCommand(context: any) {
 }
 
 async function handleAmplifyEvent(context: any, args: any) {
-  printer.info(`${AmplifyCategories.STORAGE} handleAmplifyEvent to be implemented`);
-  printer.info(`Received event args ${args}`);
+  context.print.info(`${AmplifyCategories.STORAGE} handleAmplifyEvent to be implemented`);
+  context.print.info(`Received event args ${args}`);
 }
 
 async function initEnv(context: any) {
@@ -168,7 +143,9 @@ async function initEnv(context: any) {
     tasks.push(...allResources);
   }
 
-  const storageTasks = tasks.map(storageResource => {
+ 
+
+  const storageTasks = tasks.map( storageResource  => {
     const { resourceName, service } = storageResource;
 
     return async () => {
@@ -182,12 +159,11 @@ async function initEnv(context: any) {
 
 module.exports = {
   add,
-  console: categoryConsole,
+  console : categoryConsole,
   initEnv,
   migrate: migrateStorageCategory,
   getPermissionPolicies,
   executeAmplifyCommand,
   handleAmplifyEvent,
-  transformCategoryStack,
   category: AmplifyCategories.STORAGE,
 };

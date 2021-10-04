@@ -1,37 +1,36 @@
-import { $TSContext } from 'amplify-cli-core';
-import { printer } from 'amplify-prompts';
-import { categoryName } from '../../constants';
+import { AmplifyCategories, CLISubCommands } from 'amplify-cli-core';
 
-export const name = 'update'; // subcommand
-export const alias = ['configure'];
+module.exports = {
+  name: CLISubCommands.UPDATE,
+  alias: ['configure'],
+  run: async (context: any) => {
+    const { amplify } = context;
+    const serviceMetadata = require('../../provider-utils/supported-services').supportedServices;
 
-export async function run(context: $TSContext) {
-  const { amplify } = context;
-  const serviceMetadata = (await import('../../provider-utils/supported-services')).supportedServices;
+    return amplify
+      .serviceSelectionPrompt(context, AmplifyCategories.STORAGE, serviceMetadata)
+      .then((result: any) => {
+        const providerController = require(`../../provider-utils/${result.providerName}`);
 
-  return amplify
-    .serviceSelectionPrompt(context, categoryName, serviceMetadata)
-    .then(async result => {
-      const providerController = await import(`../../provider-utils/${result.providerName}`);
+        if (!providerController) {
+          context.print.error('Provider not configured for this category');
+          return;
+        }
 
-      if (!providerController) {
-        printer.error('Provider not configured for this category');
-        return;
-      }
+        return providerController.updateResource(context, AmplifyCategories.STORAGE, result.service);
+      })
+      .then((result: any) => {
+        if (result) {
+          context.print.success('Successfully updated resource');
+        }
+      })
+      .catch((err: any) => {
+        context.print.info(err.stack);
+        context.print.error('An error occurred when updating the storage resource');
 
-      return providerController.updateResource(context, categoryName, result.service);
-    })
-    .then(result => {
-      if (result) {
-        printer.success('Successfully updated resource');
-      }
-    })
-    .catch(async err => {
-      printer.info(err.stack);
-      printer.error('An error occurred when updating the storage resource');
+        context.usageData.emitError(err);
 
-      await context.usageData.emitError(err);
-
-      process.exitCode = 1;
-    });
-}
+        process.exitCode = 1;
+      });
+  },
+};

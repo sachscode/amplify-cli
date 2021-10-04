@@ -1,18 +1,21 @@
-import { $TSContext } from 'amplify-cli-core';
-import { printer } from 'amplify-prompts';
-import { categoryName } from '../../constants';
 
-export const name = 'push'; // subcommand
+import { AmplifyCategories, CLISubCommands } from 'amplify-cli-core';
 
-export async function run(context: $TSContext) {
-  const { amplify, parameters } = context;
-  const resourceName = parameters.first;
+module.exports = {
+  name: CLISubCommands.PUSH,
+  run: async (context: any) => {
+    const { amplify, parameters } = context;
+    const resourceName = parameters.first;
 
-  context.amplify.constructExeInfo(context);
+    context.amplify.constructExeInfo(context);
 
-  return amplify.pushResources(context, categoryName, resourceName).catch(async (err: Error) => {
-    printer.error(`An error occurred when pushing the storage resource: ${err?.message || err}`);
-    await context.usageData.emitError(err);
-    process.exitCode = 1;
-  });
-}
+    return amplify.pushResources(context, AmplifyCategories.STORAGE, resourceName).catch((err: any) => {
+      context.print.info(err.stack);
+      context.print.error('An error occurred when pushing the storage resource');
+
+      context.usageData.emitError(err);
+
+      process.exitCode = 1;
+    });
+  },
+};

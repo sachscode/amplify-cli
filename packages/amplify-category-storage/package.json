@@ -40,6 +40,9 @@
   },
   "devDependencies": {
     "aws-sdk": "^2.963.0",
+    "@aws-cdk/aws-s3": "~1.72.0",
+    "@aws-cdk/cloudformation-include": "~1.72.0",
+    "@aws-cdk/core": "~1.72.0",
     "rimraf": "^3.0.2"
   },
   "jest": {

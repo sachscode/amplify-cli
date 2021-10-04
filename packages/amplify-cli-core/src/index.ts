@@ -15,7 +15,7 @@ export * from './tags';
 export * from './errors';
 export * from './exitOnNextTick';
 export * from './isPackaged';
-export * from './cliConstants';
+
 export * from './deploymentSecretsHelper';
 export * from './deploymentState';
 export * from './utils';
@@ -27,6 +27,7 @@ export * from './overrides-manager';
 export * from './hooks';
 export * from './cliConstants';
 export * from './category-interfaces';
+export {TypeDef, CLIInputSchemaGenerator, CLIInputSchemaValidator} from "./categoryBaseGenSchema";
 
 // Temporary types until we can finish full type definition across the whole CLI
 
