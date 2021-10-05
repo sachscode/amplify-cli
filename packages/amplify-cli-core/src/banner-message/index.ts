@@ -52,7 +52,7 @@ export class BannerMessage {
       this.messages = body.messages ?? [];
     } catch (e) {
       // network error should not cause CLI execution failure
-      logger.error('fetch banner message failed', e);
+      logger.error('fetch banner message failed', e as Error);
     }
   };
 

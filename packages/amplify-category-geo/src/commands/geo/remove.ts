@@ -10,7 +10,7 @@ export const name = 'remove';
 export const run = async(context: $TSContext) => {
   const { amplify } = context;
   try {
-    const result: {service: string, providerName: string} = await amplify.serviceSelectionPrompt(context, category, supportedServices, chooseServiceMessageRemove);
+    const result: {service: string, providerName: string} = ( await amplify.serviceSelectionPrompt(context, category, supportedServices, chooseServiceMessageRemove)) as {service: string, providerName: string};
 
     if (result.providerName !== provider) {
       printer.error(`Provider ${result.providerName} not configured for this category`);

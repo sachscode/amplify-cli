@@ -31,7 +31,8 @@ export const getAddAuthHandler = (context: any) => async (request: ServiceQuesti
     if (doesConfigurationIncludeSMS(request)) {
       await printSMSSandboxWarning(context.print);
     }
-  } catch (err) {
+  } catch (error) {
+    const err = error as Error;
     context.print.info(err.stack);
     context.print.error('There was an error adding the auth resource');
     context.usageData.emitError(err);
@@ -51,7 +52,8 @@ export const getUpdateAuthHandler = (context: any) => async (request: ServiceQue
     if (doesConfigurationIncludeSMS(requestWithDefaults)) {
       await printSMSSandboxWarning(context.print);
     }
-  } catch (err) {
+  } catch (error) {
+    const err = error as Error;
     context.print.info(err.stack);
     context.print.error('There was an error updating the auth resource');
     context.usageData.emitError(err);

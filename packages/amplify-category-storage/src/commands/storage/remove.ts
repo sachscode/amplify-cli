@@ -7,7 +7,7 @@ module.exports = {
     const { amplify, parameters } = context;
     const resourceName = parameters.first;
 
-    return amplify.removeResource(context, AmplifyCategories.STORAGE, resourceName).catch((err: any) => {
+    return amplify.removeResource(context, AmplifyCategories.STORAGE, resourceName).catch((err: Error) => {
       context.print.info(err.stack);
       context.print.error('An error occurred when removing the storage resource');
 

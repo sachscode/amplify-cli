@@ -1,20 +1,10 @@
-import {
-  $TSAny,
-  $TSContext,
-  $TSObject,
-  exitOnNextTick,
-  pathManager,
-  readCFNTemplate,
-  ResourceAlreadyExistsError,
-  ResourceDoesNotExistError,
-  stateManager,
-  writeCFNTemplate,
-  AmplifyCategories,
-} from 'amplify-cli-core';
-import { printer, prompter } from 'amplify-prompts';
+import * as inquirer from 'inquirer';
+import * as path from 'path';
 import * as fs from 'fs-extra';
 // import _ from 'lodash';
 import uuid from 'uuid';
+import { printer } from 'amplify-prompts';
+import { exitOnNextTick, $TSAny, $TSContext, AmplifyCategories } from 'amplify-cli-core';
 import { S3InputState } from './s3-user-input-state';
 import { S3UserInputs, S3TriggerFunctionType} from '../service-walkthrough-types/s3-user-input-types';
 import { AmplifyS3ResourceStackTransform } from  '../cdk-stack-builder/s3-stack-transform'
@@ -36,6 +26,7 @@ module.exports = {
 };
 
 // keep in sync with ServiceName in amplify-category-function, but probably it will not change
+const FunctionServiceNameLambdaFunction = 'Lambda';
 const parametersFileName = 'parameters.json';
 const serviceName = 'S3';
 const category = AmplifyCategories.STORAGE;
@@ -486,8 +477,8 @@ export async function addTrigger( triggerFlowType: S3CLITriggerFlow,
 async function getLambdaFunctionList(context: any) {
   const { allResources } = await context.amplify.getResourceStatus();
   const lambdaResources = allResources
-    .filter((resource: $TSObject) => resource.service === FunctionServiceNameLambdaFunction)
-    .map((resource: $TSObject) => resource.resourceName);
+    .filter((resource: any) => resource.service === FunctionServiceNameLambdaFunction)
+    .map((resource: any) => resource.resourceName);
 
   return lambdaResources;
 }
@@ -497,11 +488,11 @@ export const resourceAlreadyExists = (context: any) => {
   const { amplifyMeta } = amplify.getProjectDetails();
   let resourceName;
 
-  if (amplifyMeta[categoryName]) {
-    const categoryResources = amplifyMeta[categoryName];
+  if (amplifyMeta[category]) {
+    const categoryResources = amplifyMeta[category];
 
     Object.keys(categoryResources).forEach(resource => {
-      if (categoryResources[resource].service === ServiceName.S3) {
+      if (categoryResources[resource].service === serviceName) {
         resourceName = resource;
       }
     });
@@ -510,8 +501,9 @@ export const resourceAlreadyExists = (context: any) => {
   return resourceName;
 };
 
-export const checkIfAuthExists = () => {
-  const amplifyMeta = stateManager.getMeta();
+export const checkIfAuthExists = (context: any) => {
+  const { amplify } = context;
+  const { amplifyMeta } = amplify.getProjectDetails();
   let authExists = false;
   const authServiceName = 'Cognito';
   const authCategory = 'auth';
@@ -623,8 +615,8 @@ export const checkIfAuthExists = () => {
 // };
 
 function migrateCategory(context: any, projectPath: any, resourceName: any){
-    console.log("SACPCDEBUG: MIGRATING RESOURCE!! : ", projectPath , resourceName );
-     let cliInputsState = new S3InputState(resourceName, undefined);
+    console.log("SACPCDEBUG: MIGRATING RESOURCE!! : ", resourceName );
+    let cliInputsState = new S3InputState(resourceName, undefined);
     //Check if migration is required
     if (!cliInputsState.cliInputFileExists()){
         cliInputsState.migrate();
@@ -635,30 +627,31 @@ function migrateCategory(context: any, projectPath: any, resourceName: any){
 
 export function  getIAMPolicies(resourceName: any, crudOptions: any){
   let policy = [];
-  const actionsSet: Set<string> = new Set();
+  let actions = new Set();
 
   crudOptions.forEach((crudOption: any) => {
     switch (crudOption) {
       case 'create':
-        actionsSet.add('s3:PutObject');
+        actions.add('s3:PutObject');
         break;
       case 'update':
-        actionsSet.add('s3:PutObject');
+        actions.add('s3:PutObject');
         break;
       case 'read':
-        actionsSet.add('s3:GetObject');
-        actionsSet.add('s3:ListBucket');
+        actions.add('s3:GetObject');
+        actions.add('s3:ListBucket');
         break;
       case 'delete':
-        actionsSet.add('s3:DeleteObject');
+        actions.add('s3:DeleteObject');
         break;
       default:
-        printer.info(`${crudOption} not supported`);
+        console.log(`${crudOption} not supported`);
     }
   });
 
-  let actions = Array.from(actionsSet);
-  if (actions.includes('s3:ListBucket')) {
+  // @ts-expect-error ts-migrate(2740) FIXME: Type 'unknown[]' is missing the following properti... Remove this comment to see the full error message
+  actions = Array.from(actions);
+  if ((actions as any).includes('s3:ListBucket')) {
     let listBucketPolicy = {};
     listBucketPolicy = {
       Effect: 'Allow',
@@ -670,7 +663,7 @@ export function  getIAMPolicies(resourceName: any, crudOptions: any){
             [
               'arn:aws:s3:::',
               {
-                Ref: `${categoryName}${resourceName}BucketName`,
+                Ref: `${category}${resourceName}BucketName`,
               },
             ],
           ],
@@ -680,8 +673,7 @@ export function  getIAMPolicies(resourceName: any, crudOptions: any){
     actions = (actions as any).filter((action: any) => action != 's3:ListBucket');
     policy.push(listBucketPolicy);
   }
-
-  const s3ObjectPolicy = {
+  let s3ObjectPolicy = {
     Effect: 'Allow',
     Action: actions,
     Resource: [
@@ -691,7 +683,7 @@ export function  getIAMPolicies(resourceName: any, crudOptions: any){
           [
             'arn:aws:s3:::',
             {
-              Ref: `${categoryName}${resourceName}BucketName`,
+              Ref: `${category}${resourceName}BucketName`,
             },
             '/*',
           ],

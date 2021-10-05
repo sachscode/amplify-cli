@@ -336,7 +336,7 @@ export class AuthModal extends Component<Props, State> {
       return generateToken(tokenPayload);
     } catch (e) {
       this.setState({
-        oidcTokenError: e.message,
+        oidcTokenError: (e as Error).message,
       });
       throw e;
     }

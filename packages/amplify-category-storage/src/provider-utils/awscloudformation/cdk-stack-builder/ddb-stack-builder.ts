@@ -29,7 +29,7 @@ export class AmplifyDDBResourceStack extends cdk.Stack implements AmplifyDDBReso
     try {
       new cdk.CfnOutput(this, logicalId, props);
     } catch (error) {
-      throw new Error(error);
+      throw error;
     }
   }
 
@@ -42,7 +42,7 @@ export class AmplifyDDBResourceStack extends cdk.Stack implements AmplifyDDBReso
     try {
       new cdk.CfnMapping(this, logicalId, props);
     } catch (error) {
-      throw new Error(error);
+      throw error;
     }
   }
 
@@ -55,7 +55,7 @@ export class AmplifyDDBResourceStack extends cdk.Stack implements AmplifyDDBReso
     try {
       new cdk.CfnCondition(this, logicalId, props);
     } catch (error) {
-      throw new Error(error);
+      throw error;
     }
   }
   /**
@@ -67,7 +67,7 @@ export class AmplifyDDBResourceStack extends cdk.Stack implements AmplifyDDBReso
     try {
       new cdk.CfnResource(this, logicalId, props);
     } catch (error) {
-      throw new Error(error);
+      throw error;
     }
   }
 
@@ -83,7 +83,7 @@ export class AmplifyDDBResourceStack extends cdk.Stack implements AmplifyDDBReso
       }
       this._cfnParameterMap.set(logicalId, new cdk.CfnParameter(this, logicalId, props));
     } catch (error) {
-      throw new Error(error);
+      throw error;
     }
   }
 

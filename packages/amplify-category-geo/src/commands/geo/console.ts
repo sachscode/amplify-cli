@@ -14,7 +14,7 @@ export const run = async (context: $TSContext) => {
     return;
   }
 
-  const result: {service: string, providerName: string} = await amplify.serviceSelectionPrompt(context, category, supportedServices);
+  const result: {service: string, providerName: string} = (await amplify.serviceSelectionPrompt(context, category, supportedServices)) as {service: string, providerName: string};
 
   if (result.providerName !== provider) {
     printer.error(`Provider ${result.providerName} not configured for this category`);

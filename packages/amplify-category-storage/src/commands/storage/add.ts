@@ -42,7 +42,7 @@ module.exports = {
           print.info('');
         }
       })
-      .catch((err: any) => {
+      .catch((err: Error) => {
         if (err.message) {
           context.print.error(err.message);
         }

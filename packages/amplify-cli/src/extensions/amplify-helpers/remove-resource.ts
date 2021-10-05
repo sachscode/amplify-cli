@@ -112,9 +112,10 @@ export async function removeResource(
 
   try {
     return await deleteResourceFiles(context, category, resourceName, resourceDir);
-  } catch (err) {
-    if (err.stack) {
-      context.print.info(err.stack);
+  } catch (error) {
+    const err:Error = error as Error;
+    if ((err as Error).stack) {
+      context.print.info(err.stack as string );
     }
     context.print.error('An error occurred when removing the resources from the local directory');
     await context.usageData.emitError(err);

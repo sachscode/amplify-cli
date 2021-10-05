@@ -9,7 +9,7 @@ module.exports = {
 
     context.amplify.constructExeInfo(context);
 
-    return amplify.pushResources(context, AmplifyCategories.STORAGE, resourceName).catch((err: any) => {
+    return amplify.pushResources(context, AmplifyCategories.STORAGE, resourceName).catch((err: Error) => {
       context.print.info(err.stack);
       context.print.error('An error occurred when pushing the storage resource');
 

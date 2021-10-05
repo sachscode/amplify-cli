@@ -6,7 +6,7 @@
       "module": "ESNext"
     },
   "references": [
-    { "path": "../amplify-provider-awscloudformation" },
+    { "path": "../amplify-provider-awscloudformation" }
     ]
 }
   

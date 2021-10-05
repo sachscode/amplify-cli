@@ -24,7 +24,7 @@ module.exports = {
           context.print.success('Successfully updated resource');
         }
       })
-      .catch((err: any) => {
+      .catch((err: Error) => {
         context.print.info(err.stack);
         context.print.error('An error occurred when updating the storage resource');
 

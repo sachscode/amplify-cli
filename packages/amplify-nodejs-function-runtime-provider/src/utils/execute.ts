@@ -13,7 +13,7 @@ process.on('message', async (options: InvokeOptions) => {
     let plainError = error;
     if (typeof error === 'object') {
       plainError = Object.getOwnPropertyNames(error).reduce((acc, key) => {
-        acc[key] = error[key];
+        acc[key] = (error as Record<string, any>)[key];
         return acc;
       }, {} as Record<string, any>);
     }

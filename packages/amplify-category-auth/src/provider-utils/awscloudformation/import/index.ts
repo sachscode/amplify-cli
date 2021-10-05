@@ -1019,7 +1019,8 @@ export const importedAuthEnvInit = async (
 
   try {
     answers.userPool = await cognito.getUserPoolDetails(currentEnvSpecificParameters.userPoolId);
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error;
     if (error.name === 'ResourceNotFoundException') {
       context.print.error(
         importMessages.UserPoolNotFound(currentEnvSpecificParameters.userPoolName, currentEnvSpecificParameters.userPoolId),
@@ -1170,7 +1171,8 @@ export const headlessImport = async (
 
   try {
     answers.userPool = await cognito.getUserPoolDetails(currentEnvSpecificParameters.userPoolId);
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error;
     if (error.name === 'ResourceNotFoundException') {
       throw new Error(importMessages.UserPoolNotFound(currentEnvSpecificParameters.userPoolName, currentEnvSpecificParameters.userPoolId));
     }

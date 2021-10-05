@@ -190,7 +190,7 @@ async function askTriggersQuestion(context: $TSContext, resourceName: string, ex
               }
             }
           } catch (e) {
-            printer.error(e.message);
+            printer.error((e as Error).message);
             continueWithTriggerOperationQuestion = true;
           }
 
@@ -449,11 +449,11 @@ async function askAttributeListQuestion(context: $TSContext, existingAttributeDe
 
     attributeAnswers.push({
       AttributeName: attributeAnswer[QUESTION_KEY],
-      // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+      //@ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       AttributeType: attributeTypes[attributeAnswer['attributeType']].code,
     });
 
-    // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+    //@ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     if (attributeTypes[attributeAnswer['attributeType']].indexable) {
       indexableAttributeList.push(attributeAnswer[QUESTION_KEY]);
     }

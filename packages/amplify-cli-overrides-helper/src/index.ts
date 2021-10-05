@@ -1,6 +1,5 @@
 import { printer } from 'amplify-prompts';
-
-import { AmplifyRootStackTemplate } from 'amplify-provider-awscloudformation';
+import { AmplifyRootStackTemplate } from 'amplify-provider-awscloudformation/src/root-stack-builder';
 
 function getProjectInfo(): void {
   printer.info('Hello from the skeleton of get project info');

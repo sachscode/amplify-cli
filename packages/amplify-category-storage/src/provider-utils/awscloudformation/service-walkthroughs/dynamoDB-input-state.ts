@@ -54,8 +54,8 @@ export class DynamoDBInputState {
     fs.ensureDirSync(path.join(pathManager.getBackendDirPath(), this._category, this._resourceName));
     try {
       JSONUtilities.writeJson(this._cliInputsFilePath, cliInputs);
-    } catch (e) {
-      throw new Error(e);
+    } catch (error) {
+      throw error
     }
   }
 
