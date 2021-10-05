@@ -57,7 +57,7 @@ export async function buildOverrideDir(cwd: string, destDirPath: string): Promis
     if ((error as any).code === 'ENOENT') {
       throw new Error(`Packaging overrides failed. Could not find ${packageManager} executable in the PATH.`);
     } else {
-      throw new Error(`Packaging overrides failed with the error \n${error.message}`);
+      throw new Error(`Packaging overrides failed with the error \n${(error as any).message}`);
     }
   }
 }

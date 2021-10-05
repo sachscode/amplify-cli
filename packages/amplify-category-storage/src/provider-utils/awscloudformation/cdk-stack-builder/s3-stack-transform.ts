@@ -5,14 +5,9 @@ import * as cdk from '@aws-cdk/core';
 import {App} from '@aws-cdk/core';
 import {AmplifyBuildParamsPermissions, AmplifyS3ResourceInputParameters, AmplifyS3ResourceTemplate} from './types'
 import * as fs from 'fs-extra';
-import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager } from 'amplify-cli-core';
+import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager, buildOverrideDir } from 'amplify-cli-core';
 import { formatter, printer } from 'amplify-prompts';
 import path from 'path';
-
-//To be imported after merge into aws-amplify:extOverrides
-async function buildOverrideDir(backendDir : string, overrideFilePath: string):Promise<boolean>{
-    return false;
-}
 
 
 type AmplifyCfnParamType = {
