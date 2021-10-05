@@ -1,35 +1,36 @@
 export const SecretFileMode = 0o600; //file permissions for -rw-------
 export const CLISubCommands = {
-    ADD : 'add',
-    PUSH:   'push',
-    PULL:   'pull',
-    REMOVE: 'remove',
-    UPDATE: 'update',
-    CONSOLE: 'console',
-    IMPORT : 'import'
-}
+  ADD: 'add',
+  PUSH: 'push',
+  PULL: 'pull',
+  REMOVE: 'remove',
+  UPDATE: 'update',
+  CONSOLE: 'console',
+  IMPORT: 'import',
+};
 export const AmplifyCategories = {
-      STORAGE: 'storage',
-      API : 'api',
-      AUTH : 'auth',
-      FUNCTION: 'function',
-      HOSTING: 'hosting',
-      INTERACTIONS: 'interactions',
-      NOTIFICATIONS: 'notifications',
-      PREDICTIONS: 'predictions',
-      ANALYTICS : 'analytics'
-}
+  STORAGE: 'storage',
+  API: 'api',
+  AUTH: 'auth',
+  FUNCTION: 'function',
+  HOSTING: 'hosting',
+  INTERACTIONS: 'interactions',
+  NOTIFICATIONS: 'notifications',
+  PREDICTIONS: 'predictions',
+  ANALYTICS: 'analytics',
+};
 
 export const AmplifySupportedService = {
-    S3 : 's3',
-    DYNAMODB : 'DynamoDB',
-    COGNITO : 'Cognito',
-    LAMBDA : 'Lambda'
-}
+  S3: 'S3',
+  DYNAMODB: 'DynamoDB',
+  COGNITO: 'Cognito',
+  LAMBDA : 'Lambda'
+};
 
+export const overriddenCategories = [AmplifyCategories.AUTH, AmplifyCategories.STORAGE];
 
 export type IAmplifyResource = {
-    category: string;
-    resourceName: string;
-    service: string;
+  category: string;
+  resourceName: string;
+  service: string;
 };

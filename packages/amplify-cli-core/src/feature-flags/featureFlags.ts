@@ -581,6 +581,12 @@ export class FeatureFlags {
         defaultValueForExistingProjects: false,
         defaultValueForNewProjects: true,
       },
+      {
+        name: 'forceAliasAttributes',
+        type: 'boolean',
+        defaultValueForExistingProjects: false,
+        defaultValueForNewProjects: false,
+      },
     ]);
 
     this.registerFlag('codegen', [
@@ -642,13 +648,74 @@ export class FeatureFlags {
         name: 'enableDartNullSafety',
         type: 'boolean',
         defaultValueForExistingProjects: false,
-        defaultValueForNewProjects: true
-      }
+        defaultValueForNewProjects: true,
+      },
     ]);
 
     this.registerFlag('appSync', [
       {
         name: 'generateGraphQLPermissions',
+        type: 'boolean',
+        defaultValueForExistingProjects: false,
+        defaultValueForNewProjects: true,
+      },
+    ]);
+
+    this.registerFlag('latestRegionSupport', [
+      {
+        name: 'pinpoint',
+        type: 'number',
+        defaultValueForExistingProjects: 0,
+        defaultValueForNewProjects: 1,
+      },
+      {
+        name: 'translate',
+        type: 'number',
+        defaultValueForExistingProjects: 0,
+        defaultValueForNewProjects: 1,
+      },
+      {
+        name: 'transcribe',
+        type: 'number',
+        defaultValueForExistingProjects: 0,
+        defaultValueForNewProjects: 1,
+      },
+      {
+        name: 'rekognition',
+        type: 'number',
+        defaultValueForExistingProjects: 0,
+        defaultValueForNewProjects: 1,
+      },
+      {
+        name: 'textract',
+        type: 'number',
+        defaultValueForExistingProjects: 0,
+        defaultValueForNewProjects: 1,
+      },
+      {
+        name: 'comprehend',
+        type: 'number',
+        defaultValueForExistingProjects: 0,
+        defaultValueForNewProjects: 1,
+      },
+    ]);
+
+    // FF for overrides
+    this.registerFlag('overrides', [
+      {
+        name: 'storage',
+        type: 'boolean',
+        defaultValueForExistingProjects: false,
+        defaultValueForNewProjects: true,
+      },
+      {
+        name: 'auth',
+        type: 'boolean',
+        defaultValueForExistingProjects: false,
+        defaultValueForNewProjects: true,
+      },
+      {
+        name: 'project',
         type: 'boolean',
         defaultValueForExistingProjects: false,
         defaultValueForNewProjects: true,

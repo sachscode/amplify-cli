@@ -34,6 +34,16 @@ export { resolveAppId } from './utils/resolve-appId';
 export { loadConfigurationForEnv } from './configuration-manager';
 import { updateEnv } from './update-env';
 
+import { uploadHooksDirectory } from './utils/hooks-manager';
+
+export const cfnRootStackFileName = 'root-cloudformation-stack.json';
+export { storeRootStackTemplate } from './initializer';
+import { transformResourceWithOverrides } from './override-manager';
+export { transformResourceWithOverrides } from './override-manager';
+import { rootStackFileName } from './push-resources';
+export { rootStackFileName } from './push-resources';
+export { AmplifyRootStackTemplate } from './root-stack-builder';
+
 function init(context) {
   return initializer.run(context);
 }
@@ -156,4 +166,7 @@ module.exports = {
   loadConfigurationForEnv,
   getConfiguredSSMClient,
   updateEnv,
+  uploadHooksDirectory,
+  transformResourceWithOverrides,
+  rootStackFileName,
 };

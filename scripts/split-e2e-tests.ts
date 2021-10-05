@@ -2,6 +2,8 @@ import * as yaml from 'js-yaml';
 import * as glob from 'glob';
 import { join } from 'path';
 import * as fs from 'fs-extra';
+import { supportedRegions } from '../packages/amplify-category-geo/src/constants';
+
 const CONCURRENCY = 4;
 // Ensure to update packages/amplify-e2e-tests/src/cleanup-e2e-resources.ts is also updated this gets updated
 const AWS_REGIONS_TO_RUN_TESTS = [
@@ -40,6 +42,9 @@ const KNOWN_SUITES_SORTED_ACCORDING_TO_RUNTIME = [
   //<20m
   'src/__tests__/predictions.test.ts',
   'src/__tests__/hostingPROD.test.ts',
+  'src/__tests__/geo-add.test.ts',
+  'src/__tests__/geo-update.test.ts',
+  'src/__tests__/geo-remove.test.ts',
   //<25m
   'src/__tests__/schema-auth-10.test.ts',
   'src/__tests__/schema-key.test.ts',
@@ -163,7 +168,8 @@ function splitTests(
   const testSuites = getTestFiles(jobRootDir);
 
   const newJobs = testSuites.reduce((acc, suite, index) => {
-    const testRegion = AWS_REGIONS_TO_RUN_TESTS[index % AWS_REGIONS_TO_RUN_TESTS.length];
+    const supportedRegions = getSupportedRegions(suite);
+    const testRegion = supportedRegions[index % supportedRegions.length];
     const newJob = {
       ...job,
       environment: {
@@ -293,6 +299,17 @@ function getRequiredJob(jobNames: string[], index: number, concurrency: number =
     const prevIndex = (mult - 1) * concurrency + mod;
     return jobNames[prevIndex];
   }
+}
+
+/**
+ * Helper function to filter unsupported regions for certain category tests
+ * @returns list of supported regions
+ */
+function getSupportedRegions(suite: string): string[] {
+  if (suite.startsWith('src/__tests__/geo')) {
+    return AWS_REGIONS_TO_RUN_TESTS.filter(region => supportedRegions.includes(region));
+  }
+  return AWS_REGIONS_TO_RUN_TESTS;
 }
 
 function loadConfig(): CircleCIConfig {

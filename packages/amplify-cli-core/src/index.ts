@@ -22,7 +22,11 @@ export * from './utils';
 export * from './banner-message';
 export * from './cliGetCategories';
 export * from './cliRemoveResourcePrompt';
-export * from "./cliViewAPI";
+export * from './cliViewAPI';
+export * from './overrides-manager';
+export * from './hooks';
+export * from './cliConstants';
+export * from './category-interfaces';
 
 export {AmplifyCategories, AmplifySupportedService, CLISubCommands, SecretFileMode} from './cliConstants';
 export {TypeDef, CLIInputSchemaGenerator, CLIInputSchemaValidator}  from "./categoryBaseGenSchema";
@@ -59,7 +63,7 @@ export type ResourceName = string;
 
 export type IContextPrint = {
   /**
-   * @deprecated Use printer.info from amplify-prommpts instead
+   * @deprecated Use printer.info from amplify-prompts instead
    */
   info: (message: string) => void;
   /**
@@ -75,7 +79,7 @@ export type IContextPrint = {
    */
   error: (message: string) => void;
   /**
-   * @deprecated Use printer.success from amplify-prommpts instead
+   * @deprecated Use printer.success from amplify-prompts instead
    */
   success: (message: string) => void;
   /**
@@ -204,8 +208,16 @@ export interface AmplifyProjectConfig {
   providers: string[];
 }
 
-export type $TSCopyJob = any;
+/**
+ * higher level context object that could be used in plugins
+ */
+export interface ProviderContext {
+  provider: string;
+  service: string;
+  projectName: string;
+}
 
+export type $TSCopyJob = any;
 
 // Temporary interface until Context refactor
 interface AmplifyToolkit {
@@ -213,7 +225,7 @@ interface AmplifyToolkit {
   constants: $TSAny;
   constructExeInfo: (context: $TSContext) => $TSAny;
   copyBatch: (context: $TSContext, jobs: $TSCopyJob[], props: object, force?: boolean, writeParams?: boolean | object) => $TSAny;
-  crudFlow: () => $TSAny;
+  crudFlow: (role: string, permissionMap?: $TSObject, defaults?: $TSAny[]) => $TSAny;
   deleteProject: () => $TSAny;
   executeProviderUtils: (context: $TSContext, providerName: string, utilName: string, options: $TSAny) => $TSAny;
   getAllEnvs: () => string[];
@@ -248,7 +260,7 @@ interface AmplifyToolkit {
     filteredResources?: { category: string; resourceName: string }[],
   ) => $TSAny;
   storeCurrentCloudBackend: () => $TSAny;
-  readJsonFile: (fileName: string ) => $TSAny;
+  readJsonFile: (fileName: string) => $TSAny;
   removeDeploymentSecrets: (context: $TSContext, category: string, resource: string) => void;
   removeResource: (
     context: $TSContext,
@@ -260,9 +272,9 @@ interface AmplifyToolkit {
   sharedQuestions: () => $TSAny;
   showAllHelp: () => $TSAny;
   showHelp: (header: string, commands: { name: string; description: string }[]) => $TSAny;
-  showHelpfulProviderLinks: (context : $TSContext) => $TSAny;
+  showHelpfulProviderLinks: (context: $TSContext) => $TSAny;
   showResourceTable: () => $TSAny;
-  showStatusTable:( resourceTableParams : ViewResourceTableParams )=> $TSAny; //Enhanced Status with CFN-Diff
+  showStatusTable: (resourceTableParams: ViewResourceTableParams) => $TSAny; //Enhanced Status with CFN-Diff
   serviceSelectionPrompt: (
     context: $TSContext,
     category: string,
@@ -295,8 +307,8 @@ interface AmplifyToolkit {
   updateBackendConfigAfterResourceUpdate: () => $TSAny;
   updateBackendConfigAfterResourceRemove: () => $TSAny;
   loadEnvResourceParameters: (context: $TSContext, category: string, resourceName: string) => $TSAny;
-  saveEnvResourceParameters: (context: $TSContext, category: string, resourceName: string, envSpecificParams: $TSObject) => $TSAny;
-  removeResourceParameters: () => $TSAny;
+  saveEnvResourceParameters: (context: $TSContext, category: string, resourceName: string, envSpecificParams?: $TSObject) => void;
+  removeResourceParameters: (context: $TSContext, category: string, resource: string) => void;
   triggerFlow: () => $TSAny;
   addTrigger: () => $TSAny;
   updateTrigger: () => $TSAny;
@@ -315,9 +327,7 @@ interface AmplifyToolkit {
   leaveBreadcrumbs: (category: string, resourceName: string, breadcrumbs: unknown) => void;
   readBreadcrumbs: (category: string, resourceName: string) => $TSAny;
   loadRuntimePlugin: (context: $TSContext, pluginId: string) => Promise<$TSAny>;
-  getImportedAuthProperties: (
-    context: $TSContext,
-  ) => {
+  getImportedAuthProperties: (context: $TSContext) => {
     imported: boolean;
     userPoolId?: string;
     authRoleArn?: string;
@@ -325,5 +335,5 @@ interface AmplifyToolkit {
     unauthRoleArn?: string;
     unauthRoleName?: string;
   };
-  invokePluginMethod: <T>(context: $TSContext, category: string, service: string | null, method: string, args: any[]) => Promise<T>;
+  invokePluginMethod: <T>(context: $TSContext, category: string, service: string | undefined, method: string, args: any[]) => Promise<T>;
 }

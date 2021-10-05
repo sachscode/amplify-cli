@@ -1,9 +1,8 @@
+import { printer } from 'amplify-prompts';
+import { categoryName } from '../../constants';
 
-import { AmplifyCategories, CLISubCommands} from 'amplify-cli-core';
+export const name = 'console'; // subcommand
 
-module.exports = {
-  name: CLISubCommands.CONSOLE,
-  run: async (context: any) => {
-    context.print.info(`to be implemented: ${AmplifyCategories.STORAGE} ${CLISubCommands.CONSOLE}`);
-  },
-};
+export async function run() {
+  printer.info(`to be implemented: ${categoryName} ${name}`);
+}
