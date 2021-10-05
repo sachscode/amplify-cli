@@ -1,11 +1,11 @@
 import {S3PermissionType, S3UserInputs} from '../service-walkthrough-types/s3-user-input-types'
-import {S3CFNPermissionType, S3InputState} from '../service-walkthroughs/s3-user-input-state';
+import {canResourceBeTransformed, S3CFNPermissionType, S3InputState} from '../service-walkthroughs/s3-user-input-state';
 import {AmplifyS3ResourceCfnStack} from './s3-stack-builder';
 import * as cdk from '@aws-cdk/core';
 import {App} from '@aws-cdk/core';
 import {AmplifyBuildParamsPermissions, AmplifyS3ResourceInputParameters, AmplifyS3ResourceTemplate} from './types'
 import * as fs from 'fs-extra';
-import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager, buildOverrideDir } from 'amplify-cli-core';
+import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager, buildOverrideDir, IAmplifyResource } from 'amplify-cli-core';
 import { formatter, printer } from 'amplify-prompts';
 import path from 'path';
 
@@ -14,6 +14,18 @@ type AmplifyCfnParamType = {
     params : Array<string>
     paramType : string
     default? : string
+}
+
+/**
+ * Builds S3 resource stack, ingest overrides.ts and generates output-files.
+ * @param context CLI - Flow context
+ * @param resource S3 resource to be transformed ( ingest overrides.ts and generate cloudformation )
+ */
+export async function transformS3ResourceStack(context: $TSContext, resource: IAmplifyResource): Promise<void> {
+      if (canResourceBeTransformed(resource.resourceName)) {
+        const stackGenerator = new  AmplifyS3ResourceStackTransform(resource.resourceName, context);
+        stackGenerator.transform();
+      }
 }
 
 

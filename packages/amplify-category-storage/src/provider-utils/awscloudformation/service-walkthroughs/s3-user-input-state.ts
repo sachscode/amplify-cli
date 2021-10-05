@@ -95,6 +95,17 @@ export type S3InputStateOptions = {
   metadata?: S3FeatureMetadata;
 };
 
+/**
+ *
+ * @param resourceName - Name of S3 resource
+ * @returns true  - if resource can be transformed (its cli-inputs file has been generated)
+ *          false - otherwise
+ */
+export function canResourceBeTransformed(resourceName: string):boolean {
+  const resourceInputState = new S3InputState(resourceName, undefined);
+  return resourceInputState.cliInputFileExists();
+}
+
 export class S3InputState {
   static s3InputState: S3InputState;
   _cliInputsFilePath: string; //cli-inputs.json (output) filepath
