@@ -1,28 +1,31 @@
 import {S3PermissionType, S3UserInputs} from '../service-walkthrough-types/s3-user-input-types'
-import {S3CFNPermissionType, S3InputState} from '../service-walkthroughs/s3-user-input-state';
+import {canResourceBeTransformed, S3CFNDependsOn, S3CFNPermissionType, S3InputState} from '../service-walkthroughs/s3-user-input-state';
 import {AmplifyS3ResourceCfnStack} from './s3-stack-builder';
 import * as cdk from '@aws-cdk/core';
 import {App} from '@aws-cdk/core';
-import {AmplifyBuildParamsPermissions, AmplifyS3ResourceInputParameters, AmplifyS3ResourceTemplate} from './types'
+import {AmplifyBuildParamsPermissions, AmplifyCfnParamType, AmplifyS3ResourceInputParameters, AmplifyS3ResourceTemplate} from './types'
 import * as fs from 'fs-extra';
-import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager } from 'amplify-cli-core';
+import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager, buildOverrideDir, IAmplifyResource, CLISubCommandType } from 'amplify-cli-core';
 import { formatter, printer } from 'amplify-prompts';
 import path from 'path';
 
-//To be imported after merge into aws-amplify:extOverrides
-async function buildOverrideDir(backendDir : string, overrideFilePath: string):Promise<boolean>{
-    return false;
+
+
+
+/**
+ * Builds S3 resource stack, ingest overrides.ts and generates output-files.
+ * @param context CLI - Flow context
+ * @param resource S3 resource to be transformed ( ingest overrides.ts and generate cloudformation )
+ */
+export async function transformS3ResourceStack(context: $TSContext, resource: IAmplifyResource): Promise<void> {
+      if (canResourceBeTransformed(resource.resourceName)) {
+        const stackGenerator = new  AmplifyS3ResourceStackTransform(resource.resourceName, context);
+        stackGenerator.transform( CLISubCommandType.OVERRIDE );
+      }
 }
 
 
-type AmplifyCfnParamType = {
-    params : Array<string>
-    paramType : string
-    default? : string
-}
-
-
-//stack transform for S3
+//Stack transformer for S3
 export class AmplifyS3ResourceStackTransform {
     app: App;
     cliInputs: S3UserInputs;
@@ -42,10 +45,8 @@ export class AmplifyS3ResourceStackTransform {
         this.resourceName = resourceName;
     }
 
-    async transform() {
-        //SACPC!: Validation logic is broken. TBD
-        // const validationResult =   await this.cliInputsState.isCLIInputsValid();
-        // console.log("SACPCDEBUG: TRANSFORM: ValidationResult: ", validationResult);
+    async transform( commandType : CLISubCommandType ) {
+        //const validationResult =   await this.cliInputsState.isCLIInputsValid();
         const validationResult = true;
         //Only generate stack if truthsy
         if ( validationResult ) {
@@ -57,11 +58,23 @@ export class AmplifyS3ResourceStackTransform {
             this.applyOverrides()
 
             // Save generated cloudformation.json and parameters.json files
-            this.saveBuildFiles();
+            this.saveBuildFiles( commandType );
         } else {
             throw new Error("cli-inputs.json has been altered or doesn't match input-schema for the resource");
         }
 
+    }
+
+    /**
+     * getS3DependsOn function is used to fetch all the dependencies of the S3 bucket (function, auth)
+     * @returns All the dependsOn params to be inserted into amplify-meta by the category-level caller.
+     */
+    public getS3DependsOn(): S3CFNDependsOn[]|undefined {
+        if ( this.resourceTemplateObj ){
+            return this.resourceTemplateObj.getS3DependsOn();
+        } else {
+            return undefined;
+        }
     }
 
     generateCfnInputParameters() {
@@ -167,11 +180,19 @@ export class AmplifyS3ResourceStackTransform {
 
     }
 
-    saveBuildFiles() {
-        // Store cloudformation-template.json, Parameters.json and Update BackendConfig
+    saveBuildFiles( commandType : CLISubCommandType ) {
+        //Store cloudformation-template.json, Parameters.json and Update BackendConfig
         this._saveFilesToLocalFileSystem('cloudformation-template.json', this.cfn);
         this._saveFilesToLocalFileSystem('parameters.json', this.cfnInputParams);
-        this._saveDependsOnToBackendConfig();
+
+        /*
+        ** Save DependsOn into Amplify-Meta:
+        ** In case of ADD walkthrough, since the resource-entry in amplify-meta is created by the caller (addResource())
+        ** we don't save the dependsOn here. In all other cases, the resource-entry is updated with the new dependsOn entry
+        */
+        if (commandType !== CLISubCommandType.ADD ){
+            this._saveDependsOnToBackendConfig();
+        }
     }
 
     async generateStack( context : $TSContext ):Promise<string>{
@@ -246,25 +267,6 @@ export class AmplifyS3ResourceStackTransform {
         s3CfnParams.map(params => this._setCFNParams(params) )
     }
 
-    // _getDependsOnParameters(){
-    //     let s3CfnDependsOnParams : Array<AmplifyCfnParamType> = []
-    //     // //Add DependsOn Params
-    //     // if ( this.cliMetadata.dependsOn && this.cliMetadata.dependsOn.length > 0 ){
-    //     //     const dependsOn : S3CFNDependsOn[] = this.cliMetadata.dependsOn;
-    //     //     for ( const dependency of dependsOn ) {
-    //     //         for( const attribute of dependency.attributes) {
-    //     //             const dependsOnParam: AmplifyCfnParamType = {
-    //     //                 params: [`${dependency.category}${dependency.resourceName}${attribute}`],
-    //     //                 paramType : "String",
-    //     //                 default: `${dependency.category}${dependency.resourceName}${attribute}`
-    //     //             };
-    //     //             s3CfnDependsOnParams.push(dependsOnParam);
-    //     //         }
-    //     //     }
-    //     // }
-    //     return s3CfnDependsOnParams;
-    // }
-
     //Helper: Add CFN Resource Param definitions as CfnParameter .
     _setCFNParams( paramDefinitions : AmplifyCfnParamType ){
         const resourceTemplateObj = this.resourceTemplateObj;
@@ -305,10 +307,8 @@ export class AmplifyS3ResourceStackTransform {
                 this.context.amplify.updateamplifyMetaAfterResourceUpdate( AmplifyCategories.STORAGE,
                                                                            this.resourceName,
                                                                           'dependsOn',
-                                                                           s3DependsOnResources, true);
-                console.log( "SACPCDEBUG: SAVING-DEPENDSON: ", {
-                   [this.resourceName] : s3DependsOnResources
-                } );
+                                                                           s3DependsOnResources,
+                                                                           true /*overwriteIfExists*/);
             }
         }
     }

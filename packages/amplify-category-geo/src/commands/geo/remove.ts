@@ -1,7 +1,7 @@
 import { chooseServiceMessageRemove, provider } from '../../service-utils/constants';
 import { category } from '../../constants';
 import { supportedServices } from '../../supportedServices';
-import { $TSAny, $TSContext } from 'amplify-cli-core';
+import { $TSAny, $TSContext, ServiceSelection } from 'amplify-cli-core';
 import { removeResource } from '../../provider-controllers';
 import { printer } from 'amplify-prompts';
 
@@ -10,14 +10,14 @@ export const name = 'remove';
 export const run = async(context: $TSContext) => {
   const { amplify } = context;
   try {
-    const result: {service: string, providerName: string} = await amplify.serviceSelectionPrompt(context, category, supportedServices, chooseServiceMessageRemove);
+    const result: ServiceSelection = await amplify.serviceSelectionPrompt(context, category, supportedServices, chooseServiceMessageRemove);
 
     if (result.providerName !== provider) {
       printer.error(`Provider ${result.providerName} not configured for this category`);
       return;
     }
 
-    return await removeResource(context, result.service);
+    return await removeResource(context, result.service as string);
 
   } catch (error: $TSAny) {
     if (error.message) {

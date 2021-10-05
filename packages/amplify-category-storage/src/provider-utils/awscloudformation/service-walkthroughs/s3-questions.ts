@@ -2,10 +2,19 @@ import * as inquirer from 'inquirer';
 import { ResourceDoesNotExistError, ResourceAlreadyExistsError, exitOnNextTick, $TSAny, $TSContext } from 'amplify-cli-core';
 import { printer } from 'amplify-prompts';
 import _ from 'lodash';
-import { getRoleAccessDefaultValues, S3AccessType, S3PermissionType, S3UserAccessRole, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
+import { getRoleAccessDefaultValues, S3AccessType, S3PermissionType,
+         S3UserAccessRole, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
 import { checkIfAuthExists, addTrigger, S3CLITriggerUpdateMenuOptions } from './s3-walkthrough';
 import { S3PermissionMapType } from './s3-user-input-state';
 import { objectToCloudFormation } from '@aws-cdk/core';
+
+
+export enum UserPermissionTypeOptions {
+  AUTH_GUEST_USERS = "Auth/Guest Users",
+  INDIVIDUAL_GROUPS = "Individual Groups",
+  BOTH = "Both",
+  LEARN_MORE = "Learn more"
+}
 
 export const permissionMap : S3PermissionMapType = {
     'create/update': [S3PermissionType.CREATE],
@@ -23,7 +32,6 @@ export function normalizePermissionsMapValue( permissionValue : Array<S3Permissi
 
 //If READ permission then implicitly provide LIST permission
 export function denormalizePermissions( permissionValue : Array<S3PermissionType> ){
-  console.log("SACPCDEBUG: DENORMALIZATION : ", permissionValue );
   if ( permissionValue.includes(S3PermissionType.READ) ){
     permissionValue.push(S3PermissionType.LIST);
   }
@@ -47,9 +55,10 @@ export async function askAndInvokeAuthWorkflow(context: $TSContext){
       if (
         await context.amplify.confirmPrompt(
           'You need to add auth (Amazon Cognito) to your project in order to add storage for user files. Do you want to add auth now?',
+          false
         )
       ) {
-        await context.amplify.invokePluginMethod(context, 'auth', null, 'add', [context]);
+        await context.amplify.invokePluginMethod(context, 'auth', undefined, 'add', [context]);
         break;
       } else {
         context.usageData.emitSuccess();
@@ -131,7 +140,8 @@ export async function askWhoHasAccessQuestion( context: $TSContext, defaultValue
 export async function conditionallyAskWhoHasAccessQuestion( userGroupPermissionSelected : string,
                                                    context: $TSContext ,
                                                    defaultValues : S3UserInputs ): Promise<S3AccessType|undefined> {
-    if (userGroupPermissionSelected === 'Both' || userGroupPermissionSelected === 'Auth/Guest Users'){
+    if ( userGroupPermissionSelected === UserPermissionTypeOptions.BOTH ||
+         userGroupPermissionSelected === UserPermissionTypeOptions.AUTH_GUEST_USERS){
       const accessType = await askWhoHasAccessQuestion( context, defaultValues )
       return accessType;
     } else {
@@ -142,7 +152,7 @@ export async function conditionallyAskWhoHasAccessQuestion( userGroupPermissionS
 export async function askCRUDQuestion( role: S3UserAccessRole , groupName :string|undefined = undefined, context: $TSContext, defaultValues: S3UserInputs): Promise<Array<S3PermissionType>>{
   const roleDefaultValues = getRoleAccessDefaultValues(role, groupName, defaultValues);
   const userRole = (role=== S3UserAccessRole.GROUP)?groupName:role;
-  console.log("SACPCDEBUG: Ask CRUD Question: defaultValues: ",possibleCRUDOperations, " default: ", roleDefaultValues );
+  //Ask CRUD questions with default answers selected
   const question = [{
     name: 'permissions',
     type: 'checkbox',
@@ -157,7 +167,6 @@ export async function askCRUDQuestion( role: S3UserAccessRole , groupName :strin
     }}];
   const answers = await inquirer.prompt(question); //multi-select checkbox
   const results: S3PermissionType[] = denormalizePermissions(answers.permissions as Array<S3PermissionType>);
-  console.log(`SACPCDEBUG: askCRUDQuestion: ${JSON.stringify(results)}` )
   return results;
 }
 
@@ -178,7 +187,7 @@ export async function askUserPoolGroupSelectionQuestion(  userPoolGroupList : Ar
       },
     ];
     const answers = await inquirer.prompt(question); //multi-select checkbox
-    console.log("SACPCDEBUG: SELECTED USERPOOLGROUPSelection : ", answers.userpoolGroups);
+    //Selected user-pool groups
     return  answers.userpoolGroups as string[];
 }
 
@@ -187,8 +196,11 @@ export async function askUserPoolGroupPermissionSelectionQuestion() : Promise<st
     name: 'selection',
     type: 'list',
     message: 'Restrict access by?',
-    choices: ['Auth/Guest Users', 'Individual Groups', 'Both', 'Learn more'],
-    default: 'Auth/Guest Users',
+    choices: [UserPermissionTypeOptions.AUTH_GUEST_USERS,
+              UserPermissionTypeOptions.INDIVIDUAL_GROUPS,
+              UserPermissionTypeOptions.BOTH,
+              UserPermissionTypeOptions.LEARN_MORE],
+    default: UserPermissionTypeOptions.AUTH_GUEST_USERS,
   }];
   const answer = await inquirer.prompt(question); //select
   const result:string = answer.selection as string;
@@ -254,28 +266,36 @@ export async function askUserPoolGroupSelectionUntilPermissionSelected( userPool
   return permissionSelected;
 }
 
-//MUT!!: This function *mutates* cliInputs based on the answers to questions.
+/**
+ * askGroupOrIndividualAccessFlow asks user to select User-Pool-Group based or Auth/Guest based or Both
+ * authentication mechanism for access to their Object store. On selection of permission types and permissions
+ * it updates the cliInputs structure and returns.
+ * @param userPoolGroupList : User pool groups created by Auth service
+ * @param context : CLI walkthrough context
+ * @param cliInputs : CLI Input structure to be Populated
+ * @returns cliInputs asynchronously
+ */
 export async function askGroupOrIndividualAccessFlow(  userPoolGroupList: Array<string> , context : $TSContext, cliInputs : S3UserInputs): Promise<S3UserInputs> {
     if ( userPoolGroupList && userPoolGroupList.length > 0){
-      //Ask S3 walkthrough questions
-      console.log("SACPCDEBUG: UserPoolGroupList: ",userPoolGroupList );
-
+      //Ask S3 walkthrough questions - UserPool Group selection questions
       const permissionSelected = await askUserPoolGroupSelectionUntilPermissionSelected(userPoolGroupList, context, cliInputs );
-      if (permissionSelected === 'Both' || permissionSelected === 'Auth/Guest Users') {
+
+      if (permissionSelected === UserPermissionTypeOptions.BOTH || permissionSelected === UserPermissionTypeOptions.AUTH_GUEST_USERS) {
         //Build userInputs for S3 Auth/Guest users
         cliInputs.storageAccess = await askWhoHasAccessQuestion(context, cliInputs); //Auth/Guest
         cliInputs.authAccess  = await askAuthPermissionQuestion(context, cliInputs);
         cliInputs.guestAccess = await conditionallyAskGuestPermissionQuestion( cliInputs.storageAccess, context, cliInputs);
 
         //Reset group-permissions if using auth/guest
-        if (permissionSelected === 'Auth/Guest Users'){
+        if (permissionSelected === UserPermissionTypeOptions.AUTH_GUEST_USERS){
           cliInputs.groupList = [];
           cliInputs.groupAccess = undefined;
         }
       }
-      if (permissionSelected === 'Both' || permissionSelected === 'Individual Groups') {
+
+      if (permissionSelected === UserPermissionTypeOptions.BOTH || permissionSelected === UserPermissionTypeOptions.INDIVIDUAL_GROUPS) {
         //Remove all auth and guest access and only rely on Groups
-        if ( permissionSelected === 'Individual Groups' ){
+        if ( permissionSelected === UserPermissionTypeOptions.INDIVIDUAL_GROUPS ){
           cliInputs.authAccess = [];
           cliInputs.guestAccess = [];
         }

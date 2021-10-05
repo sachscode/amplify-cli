@@ -71,12 +71,10 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             bucketName : this.s3BucketName,
             corsConfiguration : this.buildCORSRules(),
         });
-        this.s3Bucket.applyRemovalPolicy( cdk.RemovalPolicy.RETAIN );
-        console.log("SACPCDEBUG: BUCKET-CREATED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
+        this.s3Bucket.applyRemovalPolicy( cdk.RemovalPolicy.RETAIN );
         //2. Configure Notifications on the S3 bucket.
         if ( this._props.triggerFunction && this._props.triggerFunction != "NONE" ){
-            console.log("SACPCDEBUG: FUNCTION-CONFIGURED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             this.s3Bucket.notificationConfiguration = this.buildNotificationConfiguration();
             this.triggerLambdaPermissions = this.createInvokeFunctionS3Permission();
             this.s3Bucket.addDependsOn(this.triggerLambdaPermissions as lambdaCdk.CfnPermission);
@@ -88,19 +86,15 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         }
 
         //3. Create IAM policies to control Cognito pool access to S3 bucket
-        console.log("SACPCDEBUG: IAM-POLICIES TBD");
         this.createAndSetIAMPolicies();
-        console.log("SACPCDEBUG: IAM-POLICIES CONFIGURED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
         //4. Configure Cognito User pool policies
         if ( this._props.groupList && this._props.groupList.length > 0 ){
-            console.log("SACPCDEBUG: GROUP-POLICIES ");
             const authResourceName : string = await s3AuthAPI.getAuthResourceARN( context );
             this.authResourceName = authResourceName;
             this.s3GroupPolicyList = this.createS3AmplifyGroupPolicies( authResourceName,
                                                                         this._props.groupList as Array<string>,
                                                                         this._props.groupAccess as GroupAccessType );
-            console.log("SACPCDEBUG: GROUP-POLICIES DONE: authResourceARN: ", authResourceName);
 
             this.addGroupParams(authResourceName);
 
@@ -329,53 +323,50 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     }
 
     createAndSetIAMPolicies(){
-        console.log("SACPCDEBUG:createAndSetIAMPolicies: Calling PublicPolicy : ");
+        //Create PublicPolicy
         if (this._cfnInputParams.s3PermissionsAuthenticatedPublic !== AmplifyBuildParamsPermissions.DISALLOW) {
             this.s3AuthPublicPolicy =  this.createS3AuthPublicPolicy();
         }
-        console.log("SACPCDEBUG:createS3AuthProtectedPolicy: Calling ProtectedPolicy : ");
+        //Create ProtectedPolicy
         if (this._cfnInputParams.s3PermissionsAuthenticatedProtected !== AmplifyBuildParamsPermissions.DISALLOW) {
            this.s3AuthProtectedPolicy = this.createS3AuthProtectedPolicy();
         }
-        console.log("SACPCDEBUG:createS3AuthPrivatePolicy: Calling PrivatePolicy : ");
+        //Create AuthPrivatePolicy
         if (this._cfnInputParams.s3PermissionsAuthenticatedPrivate !== AmplifyBuildParamsPermissions.DISALLOW) {
             this.s3AuthPrivatePolicy = this.createS3AuthPrivatePolicy();
         }
-        console.log("SACPCDEBUG:createS3AuthUploadPolicy: Calling UploadPolicy : ");
+        //Create Auth UploadPolicy
         if (this._cfnInputParams.s3PermissionsAuthenticatedUploads !== AmplifyBuildParamsPermissions.DISALLOW){
             this.s3AuthUploadPolicy = this.createS3AuthUploadPolicy();
         }
-        console.log("SACPCDEBUG:createS3AuthPublicPolicy: Calling PublicPolicy : ");
+        //Create Guest PublicPolicy
         if (this._cfnInputParams.s3PermissionsGuestPublic !== AmplifyBuildParamsPermissions.DISALLOW) {
             this.s3GuestPublicPolicy = this.createS3GuestPublicPolicy();
         }
-        console.log("SACPCDEBUG:createS3GuestUploadsPolicy: Calling GuestUploadsPolicy : ");
+        //Create GuestUploadsPolicy
         if ( this._cfnInputParams.s3PermissionsGuestUploads !== AmplifyBuildParamsPermissions.DISALLOW) {
             this.s3GuestUploadPolicy = this.createGuestUploadsPolicy();
         }
-        console.log("SACPCDEBUG:createS3AuthReadPolicy: Calling AuthReadPolicy : ");
+        //Create AuthReadPolicy
         this.s3AuthReadPolicy = this.createS3AuthReadPolicy();
-        console.log("SACPCDEBUG:createS3GuestReadPolicy: Calling GuestReadPolicy : ");
+
+        //Create GuestReadPolicy
         this.s3GuestReadPolicy = this.createS3GuestReadPolicy();
     }
 
     createS3IAMPolicyDocument( refStr: string, pathStr:string,  actionStr: string, effect: iamCdk.Effect ){
         const props : iamCdk.PolicyStatementProps = {
             resources: [ cdk.Fn.join('', ["arn:aws:s3:::", cdk.Fn.ref(refStr), pathStr]) ],
-            // actions: [ "s3:GetObject" ],
-            // actions: cdk.Lazy.listValue( { produce : ()=> cdk.Fn.split( "," ,
-            //                                               cdk.Lazy.stringValue({ produce : ()=> cdk.Fn.ref(actionStr) })) } ),
             actions: cdk.Fn.split( "," ,cdk.Fn.ref(actionStr)),
             effect
         };
-        console.log("SACPCDEBUG: createS3IAMPolicyDocument: Props : ", props );
+        //policy document
         const policyDocument =  new iamCdk.PolicyDocument();
+        //policy statement
         const policyStatement = new iamCdk.PolicyStatement(props);
         policyDocument.addStatements( policyStatement );
-
         return policyDocument;
     }
-
 
     createMultiStatementIAMPolicyDocument(  policyStatements : Array<IAmplifyIamPolicyStatementParams>){
         const policyDocument = new iamCdk.PolicyDocument();

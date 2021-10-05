@@ -134,7 +134,9 @@ export function updateProvideramplifyMeta(providerName: string, options: $TSObje
   stateManager.setMeta(undefined, amplifyMeta);
 }
 
-export function updateamplifyMetaAfterResourceUpdate(category: string, resourceName: string, attribute: string, value: $TSAny): $TSMeta {
+export function updateamplifyMetaAfterResourceUpdate(category: string, resourceName: string,
+                                                     attribute: string, value: $TSAny,
+                                                     overwriteIfExists?: boolean | undefined): $TSMeta {
   const amplifyMetaFilePath = pathManager.getAmplifyMetaFilePath();
   const currentTimestamp = new Date();
 

@@ -95,6 +95,17 @@ export type S3InputStateOptions = {
   metadata?: S3FeatureMetadata;
 };
 
+/**
+ *
+ * @param resourceName - Name of S3 resource
+ * @returns true  - if resource can be transformed (its cli-inputs file has been generated)
+ *          false - otherwise
+ */
+export function canResourceBeTransformed(resourceName: string):boolean {
+  const resourceInputState = new S3InputState(resourceName, undefined);
+  return resourceInputState.cliInputFileExists();
+}
+
 export class S3InputState {
   static s3InputState: S3InputState;
   _cliInputsFilePath: string; //cli-inputs.json (output) filepath
@@ -240,7 +251,6 @@ export class S3InputState {
       cliInputs = this.getCliInputPayload();
     }
     const schemaValidator = new CLIInputSchemaValidator(this._service, this._category, "S3UserInputs");
-    console.log("SACPCDEBUG: Validating CLI-Inputs: ", JSON.stringify(cliInputs, null, 2));
     return await schemaValidator.validateInput(JSON.stringify(cliInputs));
   }
 

@@ -96,7 +96,8 @@ export async function updateConfigOnEnvInit(context: $TSContext, category: strin
         context,
         {
           providerName: provider,
-          // @ts-expect-error ts-migrate(2322) FIXME: Type 'undefined' is not assignable to type 'string... Remove this comment to see the full error message
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          //@ts-ignore
           provider: undefined, // We don't have the resolved directory of the provider we pass in an instance
           service, // S3 | DynamoDB
         } as $TSAny,
