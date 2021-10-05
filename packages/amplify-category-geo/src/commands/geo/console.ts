@@ -1,4 +1,4 @@
-import { $TSContext } from 'amplify-cli-core';
+import { $TSContext, ServiceSelection } from 'amplify-cli-core';
 import { openConsole } from '../../provider-controllers';
 import { category } from '../../constants';
 import { supportedServices } from '../../supportedServices';
@@ -14,12 +14,12 @@ export const run = async (context: $TSContext) => {
     return;
   }
 
-  const result: {service: string, providerName: string} = await amplify.serviceSelectionPrompt(context, category, supportedServices);
+  const result: ServiceSelection = await amplify.serviceSelectionPrompt(context, category, supportedServices);
 
   if (result.providerName !== provider) {
     printer.error(`Provider ${result.providerName} not configured for this category`);
     return;
   }
 
-  return openConsole(result.service);
+  return openConsole(result.service as string);
 };

@@ -49,7 +49,7 @@ export async function askAndInvokeAuthWorkflow(context: $TSContext){
           'You need to add auth (Amazon Cognito) to your project in order to add storage for user files. Do you want to add auth now?',
         )
       ) {
-        await context.amplify.invokePluginMethod(context, 'auth', null, 'add', [context]);
+        await context.amplify.invokePluginMethod(context, 'auth', undefined, 'add', [context]);
         break;
       } else {
         context.usageData.emitSuccess();

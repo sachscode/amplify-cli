@@ -1,7 +1,7 @@
 import { chooseServiceMessageUpdate, provider } from '../../service-utils/constants';
 import { category } from '../../constants';
 import { supportedServices } from '../../supportedServices';
-import { $TSAny, $TSContext } from 'amplify-cli-core';
+import { $TSAny, $TSContext, ServiceSelection } from 'amplify-cli-core';
 import { updateResource } from '../../provider-controllers';
 import { printer } from 'amplify-prompts';
 import { verifySupportedRegion } from '../../service-utils/resourceUtils';
@@ -15,14 +15,14 @@ export const run = async(context: $TSContext) => {
       return;
     }
 
-    const result: {service: string, providerName: string} = await amplify.serviceSelectionPrompt(context, category, supportedServices, chooseServiceMessageUpdate);
+    const result: ServiceSelection = await amplify.serviceSelectionPrompt(context, category, supportedServices, chooseServiceMessageUpdate);
 
     if (result.providerName !== provider) {
       printer.error(`Provider ${result.providerName} not configured for this category`);
       return;
     }
 
-    return await updateResource(context, result.service);
+    return await updateResource(context, result.service as string);
 
   } catch (error:$TSAny) {
     if (error.message) {
