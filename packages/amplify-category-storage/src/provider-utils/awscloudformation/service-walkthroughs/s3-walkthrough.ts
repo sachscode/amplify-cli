@@ -4,7 +4,7 @@ import * as fs from 'fs-extra';
 // import _ from 'lodash';
 import uuid from 'uuid';
 import { printer } from 'amplify-prompts';
-import { exitOnNextTick, $TSAny, $TSContext, AmplifyCategories } from 'amplify-cli-core';
+import { exitOnNextTick, $TSAny, $TSContext, AmplifyCategories, $TSObject, CLISubCommandType } from 'amplify-cli-core';
 import { S3InputState } from './s3-user-input-state';
 import { S3UserInputs, S3TriggerFunctionType} from '../service-walkthrough-types/s3-user-input-types';
 import { AmplifyS3ResourceStackTransform } from  '../cdk-stack-builder/s3-stack-transform'
@@ -31,10 +31,10 @@ const parametersFileName = 'parameters.json';
 const serviceName = 'S3';
 const category = AmplifyCategories.STORAGE;
 
-async function addWalkthrough( context: $TSContext ){
+async function addWalkthrough( context: $TSContext, defaultValuesFilename : string , serviceMetadata : $TSObject , options: $TSObject ){
   const { amplify } = context;
   const { amplifyMeta } = amplify.getProjectDetails();
-  console.log("SACPCDEBUG:2: amplifyMeta: " , JSON.stringify(amplifyMeta, null, 2) );
+  console.log("SACPCDEBUG:ADD-Walkthrough: amplifyMeta: " , JSON.stringify(amplifyMeta, null, 2) );
 
   //First ask customers to configure Auth on the S3 resource, invoke auth workflow
   await askAndInvokeAuthWorkflow(context);
@@ -74,7 +74,14 @@ async function addWalkthrough( context: $TSContext ){
 
     //Generate Cloudformation
     const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context );
-    await stackGenerator.transform();
+    await stackGenerator.transform(CLISubCommandType.ADD);
+    console.log("SACPCDEBUG:ADD-Walkthrough: DONE! : " ,  triggerFunction);
+
+    //Insert dependsOn into Options!! - The caller syncs this into amplify-meta
+    const dependsOn = stackGenerator.getS3DependsOn();
+    if ( dependsOn ){
+      options.dependsOn = dependsOn;
+    }
     return cliInputs.resourceName;
   }
 };
@@ -104,7 +111,7 @@ async function  updateWalkthrough(context: any){
           ) {
             cliInputsState.migrate();
             const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context );
-            stackGenerator.transform(); //generates cloudformation
+            stackGenerator.transform(CLISubCommandType.UPDATE); //generates cloudformation
           } else {
             return;
           }
@@ -138,7 +145,7 @@ async function  updateWalkthrough(context: any){
       cliInputsState.saveCliInputPayload(cliInputs);
       //Generate Cloudformation
       const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context);
-      stackGenerator.transform();
+      stackGenerator.transform(CLISubCommandType.UPDATE);
       return cliInputs.resourceName;
   }
 };
@@ -621,7 +628,7 @@ function migrateCategory(context: any, projectPath: any, resourceName: any){
     if (!cliInputsState.cliInputFileExists()){
         cliInputsState.migrate();
         const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context );
-        stackGenerator.transform();
+        stackGenerator.transform( CLISubCommandType.MIGRATE );
     }
 }
 

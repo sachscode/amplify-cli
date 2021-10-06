@@ -98,6 +98,7 @@ export function updateamplifyMetaAfterResourceAdd(
   if (metadataResource.dependsOn) {
     checkForCyclicDependencies(category, resourceName, metadataResource.dependsOn);
   }
+  console.log("SACPCDEBUG: updateamplifyMetaAfterResourceAdd, : category: ", category ,"resourceName: ", resourceName, "overwriteObjectIfExists: ", overwriteObjectIfExists)
 
   if (!amplifyMeta[category]) {
     amplifyMeta[category] = {};
@@ -134,7 +135,9 @@ export function updateProvideramplifyMeta(providerName: string, options: $TSObje
   stateManager.setMeta(undefined, amplifyMeta);
 }
 
-export function updateamplifyMetaAfterResourceUpdate(category: string, resourceName: string, attribute: string, value: $TSAny): $TSMeta {
+export function updateamplifyMetaAfterResourceUpdate(category: string, resourceName: string,
+                                                     attribute: string, value: $TSAny,
+                                                     overwriteIfExists?: boolean | undefined): $TSMeta {
   const amplifyMetaFilePath = pathManager.getAmplifyMetaFilePath();
   const currentTimestamp = new Date();
 
