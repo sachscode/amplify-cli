@@ -309,9 +309,6 @@ export class AmplifyS3ResourceStackTransform {
                                                                           'dependsOn',
                                                                            s3DependsOnResources,
                                                                            true /*overwriteIfExists*/);
-                console.log( "SACPCDEBUG: SAVING-DEPENDSON: ", {
-                   [this.resourceName] : s3DependsOnResources
-                } );
             }
         }
     }

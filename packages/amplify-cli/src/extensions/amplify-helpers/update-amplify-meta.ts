@@ -98,7 +98,6 @@ export function updateamplifyMetaAfterResourceAdd(
   if (metadataResource.dependsOn) {
     checkForCyclicDependencies(category, resourceName, metadataResource.dependsOn);
   }
-  console.log("SACPCDEBUG: updateamplifyMetaAfterResourceAdd, : category: ", category ,"resourceName: ", resourceName, "overwriteObjectIfExists: ", overwriteObjectIfExists)
 
   if (!amplifyMeta[category]) {
     amplifyMeta[category] = {};

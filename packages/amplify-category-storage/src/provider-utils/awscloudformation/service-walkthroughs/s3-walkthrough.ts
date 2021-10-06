@@ -34,7 +34,6 @@ const category = AmplifyCategories.STORAGE;
 async function addWalkthrough( context: $TSContext, defaultValuesFilename : string , serviceMetadata : $TSObject , options: $TSObject ){
   const { amplify } = context;
   const { amplifyMeta } = amplify.getProjectDetails();
-  console.log("SACPCDEBUG:ADD-Walkthrough: amplifyMeta: " , JSON.stringify(amplifyMeta, null, 2) );
 
   //First ask customers to configure Auth on the S3 resource, invoke auth workflow
   await askAndInvokeAuthWorkflow(context);
@@ -75,7 +74,6 @@ async function addWalkthrough( context: $TSContext, defaultValuesFilename : stri
     //Generate Cloudformation
     const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context );
     await stackGenerator.transform(CLISubCommandType.ADD);
-    console.log("SACPCDEBUG:ADD-Walkthrough: DONE! : " ,  triggerFunction);
 
     //Insert dependsOn into Options!! - The caller syncs this into amplify-meta
     const dependsOn = stackGenerator.getS3DependsOn();
@@ -119,7 +117,6 @@ async function  updateWalkthrough(context: any){
 
       let previousUserInput = cliInputsState.getUserInput();
       let cliInputs : S3UserInputs= Object.assign({}, previousUserInput); //overwrite this with updated params
-      console.log("UPDATE-DEBUG: Previous CLIInputs: ", JSON.stringify(cliInputs, null, 2) );
 
       //note: If userPoolGroups have been created/Updated, then they need to be updated in CLI Inputs
       //This check is not required once Auth is integrated with s3-auth-apis.
@@ -127,7 +124,6 @@ async function  updateWalkthrough(context: any){
       if ( userPoolGroupList && userPoolGroupList.length > 0){
         cliInputs = await askGroupOrIndividualAccessFlow(userPoolGroupList, context, cliInputs);
         //Ask S3 walkthrough questions
-        console.log("SACPCDEBUG: UserPoolGroupList: ", userPoolGroupList , " GroupList: " , cliInputs.groupList, " ", cliInputs.groupAccess  );
       } else {
         //Build userInputs for S3 resources
         cliInputs.storageAccess = await askWhoHasAccessQuestion(context, previousUserInput); //Auth/Guest
@@ -139,7 +135,6 @@ async function  updateWalkthrough(context: any){
       cliInputs.triggerFunction = await  startUpdateTriggerFunctionFlow( context, resourceName,
                                                                           previousUserInput.policyUUID as string,
                                                                           previousUserInput.triggerFunction ) ;
-      console.log("SACPCDEBUG:Update DEBUG : NEW CLIInputs: ", JSON.stringify(cliInputs, null, 2) );
 
       //Save CLI Inputs payload
       cliInputsState.saveCliInputPayload(cliInputs);

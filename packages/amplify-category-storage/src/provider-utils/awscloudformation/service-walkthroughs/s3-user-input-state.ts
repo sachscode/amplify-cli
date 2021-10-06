@@ -251,7 +251,6 @@ export class S3InputState {
       cliInputs = this.getCliInputPayload();
     }
     const schemaValidator = new CLIInputSchemaValidator(this._service, this._category, "S3UserInputs");
-    console.log("SACPCDEBUG: Validating CLI-Inputs: ", JSON.stringify(cliInputs, null, 2));
     return await schemaValidator.validateInput(JSON.stringify(cliInputs));
   }
 

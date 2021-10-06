@@ -17,8 +17,8 @@ export const getAllDefaults = (project: any, shortId : string) : S3UserInputs  =
     policyUUID : shortId,
     bucketName: `${name}${uuid().replace(/-/g, '')}`.substr(0, 47), // 63(max) - 10 (envName max) - 4(stack name) - 2(separators)
     storageAccess: S3AccessType.AUTH_ONLY,
-    guestAccess: [S3PermissionType.READ, S3PermissionType.LIST],
-    authAccess:  [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.LIST],
+    guestAccess: [],
+    authAccess:  [],
     triggerFunction : undefined,
     groupAccess : undefined,
     groupList : undefined

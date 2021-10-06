@@ -37,6 +37,7 @@ export enum S3PermissionType {
     LIST = "LIST"
 }
 
+
 export type GroupAccessType = Record<string,S3PermissionType[]>;
 
 
@@ -60,7 +61,7 @@ export function defaultS3UserInputs() :S3UserInputs {
         storageAccess : undefined,
         policyUUID : undefined,
         guestAccess : [],
-        authAccess : [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.LIST],
+        authAccess : [],
         triggerFunction:undefined,
         groupAccess: undefined,
         groupList: undefined
