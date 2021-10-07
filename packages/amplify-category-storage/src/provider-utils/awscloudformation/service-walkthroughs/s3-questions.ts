@@ -3,10 +3,21 @@ import { ResourceDoesNotExistError, ResourceAlreadyExistsError, exitOnNextTick, 
 import { printer } from 'amplify-prompts';
 import _ from 'lodash';
 import { getRoleAccessDefaultValues, S3AccessType, S3PermissionType,
+         S3TriggerFunctionType,
          S3UserAccessRole, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
-import { checkIfAuthExists, addTrigger, S3CLITriggerUpdateMenuOptions } from './s3-walkthrough';
+import { checkIfAuthExists, addTrigger} from './s3-walkthrough';
 import { S3PermissionMapType } from './s3-user-input-state';
 import { objectToCloudFormation } from '@aws-cdk/core';
+
+/**
+ * Interactive question to ask user.
+ */
+ export enum S3CLITriggerUpdateMenuOptions {
+  ADD = 'Add the Trigger',
+  UPDATE = 'Update the Trigger',
+  REMOVE = 'Remove the trigger',
+  SKIP   = 'Skip Question'
+}
 
 
 export enum UserPermissionTypeOptions {
@@ -21,6 +32,21 @@ export const permissionMap : S3PermissionMapType = {
     read: [S3PermissionType.READ, S3PermissionType.LIST],
     delete: [S3PermissionType.DELETE],
   };
+
+
+/**
+ * askAndOpenFunctionEditor
+ * Ask user if they want to edit the function,
+ * Open the function's index.js in the editor
+ * @param context
+ * @param functionName
+ */
+ export async function askAndOpenFunctionEditor( context: $TSContext, functionName : string ){
+  const targetDir = context.amplify.pathManager.getBackendDirPath();
+  if (await context.amplify.confirmPrompt(`Do you want to edit the local ${functionName} lambda function now?`)) {
+    await context.amplify.openEditor(context, `${targetDir}/function/${functionName}/src/index.js`);
+  }
+}
 
 export function normalizePermissionsMapValue( permissionValue : Array<S3PermissionType>){
     if ( permissionValue.includes(S3PermissionType.READ) ){
@@ -41,13 +67,27 @@ export function denormalizePermissions( permissionValue : Array<S3PermissionType
 export const possibleCRUDOperations = Object.keys(permissionMap).map(el => ({ name: el,
                                                                               value: normalizePermissionsMapValue(permissionMap[el]) }));
 
-function getKeyFromValue( obj:Record<string, Array<any>>, value :any ){
-    for ( const key of Object.keys(obj) ){
-      if ( obj[key].includes(value) ){
-        return key;
-      }
-    }
-    return undefined;
+
+export async function askTriggerFunctionTypeQuestion(): Promise<S3TriggerFunctionType>{
+  const triggerTypeQuestion = [{
+    type: 'list',
+    name: 'triggerType',
+    message: 'Select from the following options',
+    choices: [S3TriggerFunctionType.EXISTING_FUNCTION, S3TriggerFunctionType.NEW_FUNCTION],
+  }];
+  const triggerTypeAnswer = await inquirer.prompt(triggerTypeQuestion);
+  return triggerTypeAnswer.triggerType as S3TriggerFunctionType;
+}
+
+export async function askSelectExistingFunctionToAddTrigger( lambdaResources : Array<string> ) : Promise<string>{
+const triggerOptionQuestion = [{
+  type: 'list',
+  name: 'triggerOption',
+  message: 'Select from the following options',
+  choices: lambdaResources,
+}];
+const triggerOptionAnswer = await inquirer.prompt(triggerOptionQuestion);
+return  triggerOptionAnswer.triggerOption as string;
 }
 
 export async function askAndInvokeAuthWorkflow(context: $TSContext){
