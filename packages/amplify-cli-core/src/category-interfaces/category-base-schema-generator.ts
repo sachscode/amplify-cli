@@ -41,8 +41,14 @@ export class CLIInputSchemaGenerator {
     printer.info('Skipping this schema');
   }
 
-  private printSuccessSchemaFileWritten(typeName: string) {
+  private printSuccessSchemaFileWritten(schemaFilePath: string, typeName: string) {
     printer.info(`Schema written for type ${typeName}.`);
+    printer.info(`Output Path: ${schemaFilePath}`);
+  }
+
+  private printGeneratingSchemaMessage(svcAbsoluteFilePath: string, serviceName : string){
+    printer.info(`Generating Schema for ${serviceName}`);
+    printer.info(`Input Path: ${svcAbsoluteFilePath}`);
   }
 
   constructor(typeDefs: TypeDef[]) {
@@ -61,9 +67,11 @@ export class CLIInputSchemaGenerator {
     for (const typeDef of this.serviceTypeDefs) {
       //get absolute file path to the user-input types for the given service
       const svcAbsoluteFilePath = this.getSvcFileAbsolutePath(typeDef.service);
-      printer.info(svcAbsoluteFilePath);
+      this.printGeneratingSchemaMessage(svcAbsoluteFilePath, typeDef.service);
       //generate json-schema from the input-types
-      const typeSchema = buildGenerator(getProgramFromFiles([svcAbsoluteFilePath]), settings)?.getSchemaForSymbol(typeDef.typeName);
+      const program = getProgramFromFiles([svcAbsoluteFilePath]);
+      const schemaGenerator = buildGenerator(program, settings);
+      const typeSchema = schemaGenerator?.getSchemaForSymbol(typeDef.typeName);
       //save json-schema file for the input-types. (used to validate cli-inputs.json)
       const outputSchemaFilePath = path.resolve(
         path.join(this.SCHEMA_FILES_ROOT, typeDef.service, this.getSchemaFileNameForType(typeDef.typeName)),
@@ -75,7 +83,7 @@ export class CLIInputSchemaGenerator {
       fs.ensureFileSync(outputSchemaFilePath);
       fs.writeFileSync(outputSchemaFilePath, JSON.stringify(typeSchema, undefined, 4));
       //print success status to the terminal
-      this.printSuccessSchemaFileWritten(typeDef.typeName);
+      this.printSuccessSchemaFileWritten(outputSchemaFilePath, typeDef.typeName);
       generatedFilePaths.push(outputSchemaFilePath);
     }
     return generatedFilePaths;

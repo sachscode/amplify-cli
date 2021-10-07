@@ -8,6 +8,17 @@ export const CLISubCommands = {
   CONSOLE: 'console',
   IMPORT: 'import',
 };
+export enum CLISubCommandType {
+  ADD = 'add',
+  PUSH = 'push',
+  PULL = 'pull',
+  REMOVE = 'remove',
+  UPDATE = 'update',
+  CONSOLE = 'console',
+  IMPORT = 'import',
+  OVERRIDE = 'override',
+  MIGRATE = 'migrate'
+}
 export const AmplifyCategories = {
   STORAGE: 'storage',
   API: 'api',
@@ -24,6 +35,7 @@ export const AmplifySupportedService = {
   S3: 'S3',
   DYNAMODB: 'DynamoDB',
   COGNITO: 'Cognito',
+  LAMBDA : 'Lambda'
 };
 
 export const overriddenCategories = [AmplifyCategories.AUTH, AmplifyCategories.STORAGE];
