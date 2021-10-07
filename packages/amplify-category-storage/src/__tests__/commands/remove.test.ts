@@ -44,3 +44,40 @@ describe('remove ddb command tests', () => {
     expect(mockContext.amplify.removeResource).toHaveBeenCalledWith(mockContext, 'storage', mockResourceName);
   });
 });
+
+
+describe('remove s3 command tests', () => {
+  const provider = 'awscloudformation';
+  let mockContext: $TSContext;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockContext = {
+      amplify: {},
+      parameters: {},
+    } as unknown as $TSContext;
+  });
+
+  it('update resource workflow is invoked for s3 with no params', async () => {
+    mockContext.amplify.removeResource = jest.fn().mockImplementation(async () => {
+      return;
+    });
+
+    await run(mockContext);
+
+    expect(mockContext.amplify.removeResource).toHaveBeenCalledWith(mockContext, 'storage', undefined);
+  });
+
+  it('update resource workflow is invoked for s3 with params as resourceName', async () => {
+    const mockResourceName = 'mockResourceName';
+    mockContext.parameters.first = mockResourceName;
+    mockContext.amplify.removeResource = jest.fn().mockImplementation(async () => {
+      return;
+    });
+
+    await run(mockContext);
+
+    expect(mockContext.amplify.removeResource).toHaveBeenCalledWith(mockContext, 'storage', mockResourceName);
+  });
+});
+
