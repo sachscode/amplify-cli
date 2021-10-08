@@ -46,7 +46,7 @@ export const possibleCRUDOperations = Object.keys(permissionMap).map(el => ({
  */
 export async function askAndOpenFunctionEditor(context: $TSContext, functionName: string) {
   const targetDir = context.amplify.pathManager.getBackendDirPath();
-  if (await context.amplify.confirmPrompt(`Do you want to edit the local ${functionName} lambda function now?`)) {
+  if (await prompter.confirmContinue(`Do you want to edit the local ${functionName} lambda function now?`)) {
     await context.amplify.openEditor(context, `${targetDir}/function/${functionName}/src/index.js`);
   }
 }
@@ -65,7 +65,7 @@ export async function askSelectExistingFunctionToAddTrigger(choiceslambdaResourc
 }
 
 export async function askAndInvokeAuthWorkflow(context: $TSContext) {
-  while (!checkIfAuthExists(context)) {
+  while (!checkIfAuthExists()) {
     const shouldAddAuth = await prompter.yesOrNo(
       'You need to add auth (Amazon Cognito) to your project in order to add storage for user files. Do you want to add auth now?',
       false,

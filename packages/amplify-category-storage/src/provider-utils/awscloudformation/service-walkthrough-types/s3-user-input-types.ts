@@ -75,7 +75,7 @@ export function getRoleAccessDefaultValues( role : string, groupName: string | u
       case S3UserAccessRole.GUEST:
        return userInputs.guestAccess;
       case S3UserAccessRole.GROUP:
-        if ( userInputs.groupAccess && groupName){
+        if ( userInputs.groupAccess && groupName && userInputs.groupAccess[groupName]){
             return userInputs.groupAccess[groupName]
         } else {
             return [];
