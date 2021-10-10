@@ -102,8 +102,7 @@ export async function addWalkthrough( context: $TSContext, defaultValuesFilename
  * @returns resourceName
  */
 export async function  updateWalkthrough(context: any){
-  const { amplify } = context;
-  const { amplifyMeta } = amplify.getProjectDetails();
+  const amplifyMeta = stateManager.getMeta();
   const resourceName : string| undefined = await getS3ResourceNameFromMeta( amplifyMeta );
   if (resourceName === undefined ){
     await printErrorNoResourcesToUpdate(context);
@@ -121,7 +120,7 @@ export async function  updateWalkthrough(context: any){
       if (!cliInputsState.cliInputFileExists()){
           if (
             context.exeInfo?.forcePush ||
-            (await amplify.confirmPrompt('File migration required to continue. Do you want to continue?', true))
+            (await prompter.confirmContinue('File migration required to continue. Do you want to continue?'))
           ) {
             cliInputsState.migrate();
             const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context );

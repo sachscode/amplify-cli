@@ -10,6 +10,7 @@ import {
   S3TriggerFunctionType,
   S3UserInputs,
 } from '../../../../provider-utils/awscloudformation/service-walkthrough-types/s3-user-input-types';
+import { UserPermissionTypeOptions } from '../../../../provider-utils/awscloudformation/service-walkthroughs/s3-questions';
 
 jest.mock('amplify-cli-core');
 jest.mock('amplify-prompts');
@@ -187,132 +188,212 @@ describe('add s3 walkthrough tests', () => {
 
 });
 
-// describe('update s3 walkthrough tests', () => {
-//   let mockContext: $TSContext;
 
-//   beforeEach(() => {
-//     jest.mock('amplify-prompts');
-//     mockContext = {
-//       amplify: {
-//         getProjectDetails: () => {
-//           return {
-//             projectConfig: {
-//               projectName: 'mockProject',
-//             },
-//           };
-//         },
-//       },
-//     } as unknown as $TSContext;
-//   });
+describe('update s3 permission walkthrough tests', () => {
+  let mockContext: $TSContext;
+  beforeEach(() => {
+    //Mock: UUID generation
+    jest.spyOn(uuid, 'v4').mockReturnValue(S3MockDataBuilder.mockPolicyUUID);
 
-//   afterEach(() => {
-//     jest.clearAllMocks();
-//   });
+    //Mock: Context/Amplify-Meta
+    mockContext = {
+      amplify: {
+        getUserPoolGroupList: () => [],
+        getProjectDetails: () => {
+          return {
+            projectConfig: {
+              projectName: 'mockProject',
+            },
+            amplifyMeta: {
+              auth: S3MockDataBuilder.mockAuthMeta,
+              storage : {
+                [S3MockDataBuilder.mockResourceName]: {
+                  "service": "S3",
+                  "providerPlugin": "awscloudformation",
+                  "dependsOn": []
+                }
+              }
+            },
+          };
+        },
+        // eslint-disable-next-line
+        getResourceStatus: () => {
+          return { allResources: S3MockDataBuilder.getMockGetAllResourcesNoExistingLambdas() };
+        }, //eslint-disable-line
+        copyBatch : jest.fn().mockReturnValue( new Promise((resolve, reject) => resolve(true) ) ),
+        updateamplifyMetaAfterResourceAdd : jest.fn().mockReturnValue( new Promise((resolve, reject) => resolve(true) ) ),
+        pathManager: {
+          getBackendDirPath: jest.fn().mockReturnValue("mockTargetDir")
+        }
+      }
+    } as unknown as $TSContext;
+  });
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+  /**
+   * Update Auth + Guest Tests
+   */
+  it('updateWalkthrough() simple-auth + update auth-permission', async () => {
+    const mockDataBuilder = new S3MockDataBuilder(undefined);
+    const currentCLIInputs = mockDataBuilder.removeMockTriggerFunction().getCLIInputs();
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(()=> currentCLIInputs); //simple-auth 
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
 
-//   it('updateWalkthrough() test to add gsi', async () => {
-//     let mockAmplifyMeta = {
-//       storage: {
-//         mockresourcename: {
-//           service: 'DynamoDB',
-//           providerPlugin: 'awscloudformation',
-//         },
-//         dynamoefb50875: {
-//           service: 'DynamoDB',
-//           providerPlugin: 'awscloudformation',
-//         },
-//       },
-//     };
+    //**Set Auth permissions in Expected Output (without Delete permissions)
+    const expectedCLIInputsJSON: S3UserInputs = mockDataBuilder.removeAuthPermission( S3PermissionType.DELETE ).getCLIInputs();
 
-//     stateManager.getMeta = jest.fn().mockReturnValue(mockAmplifyMeta);
+    //Update CLI walkthrough (update auth permission)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
+      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ]); /** Update Auth Permission in CLI */
 
-//     const currentCLIInputsJSON: DynamoDBCLIInputs = {
-//       resourceName: 'mockresourcename',
-//       tableName: 'mocktablename',
-//       partitionKey: {
-//         fieldName: 'id',
-//         fieldType: FieldType.string,
-//       },
-//       sortKey: {
-//         fieldName: 'name',
-//         fieldType: FieldType.number,
-//       },
-//       gsi: [
-//         {
-//           name: 'gsiname',
-//           partitionKey: {
-//             fieldName: 'name',
-//             fieldType: FieldType.number,
-//           },
-//         },
-//       ],
-//       triggerFunctions: [],
-//     };
+    prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
+    stateManager.getMeta = jest.fn().mockReturnValue( S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthrough );
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
 
-//     jest.spyOn(DynamoDBInputState.prototype, 'getCliInputPayload').mockImplementation(() => currentCLIInputsJSON);
+  it('updateWalkthrough() simple-auth + update auth+guest permission', async () => {
+    const mockDataBuilder = new S3MockDataBuilder(undefined);
+    const currentCLIInputs = mockDataBuilder.removeMockTriggerFunction().getCLIInputs();
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(()=> currentCLIInputs); //simple-auth 
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
 
-//     jest.spyOn(DynamoDBInputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
-//     jest.spyOn(DynamoDBInputState.prototype, 'cliInputFileExists').mockImplementation(() => true);
-//     jest.spyOn(DDBStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+    //**Set Auth permissions in Expected Output (without Delete permissions)
+    const expectedCLIInputsJSON: S3UserInputs = mockDataBuilder
+                                                .removeAuthPermission(S3PermissionType.DELETE)
+                                                .addGuestAccess([S3PermissionType.READ, S3PermissionType.LIST])
+                                                .getCLIInputs();
 
-//     prompter.input = jest
-//       .fn()
-//       .mockResolvedValueOnce('col') // What would you like to name this column
-//       .mockResolvedValueOnce('updategsiname'); // Provide the GSI name
+    //Update CLI walkthrough (update auth permission)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_AND_GUEST) // who should have access
+      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce([S3PermissionType.READ]); /** Update Guest Permission in CLI */
 
-//     prompter.pick = jest
-//       .fn()
-//       .mockReturnValueOnce('mockresourcename') // Specify the resource that you would want to update
-//       .mockReturnValueOnce('string') // Choose the data type
-//       .mockReturnValueOnce('col') // Choose partition key for the GSI
-//       .mockReturnValueOnce('name'); // Choose sort key for the GSI
+    prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
+    stateManager.getMeta = jest.fn().mockReturnValue( S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthrough );
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
 
-//     prompter.yesOrNo = jest
-//       .fn()
-//       .mockReturnValueOnce(true) // Would you like to add another column
-//       .mockReturnValueOnce(false) // Would you like to add another column
-//       .mockReturnValueOnce(true) // Do you want to keep existing global seconday indexes created on your table?
-//       .mockReturnValueOnce(true) // Do you want to add global secondary indexes to your table?
-//       .mockReturnValueOnce(false) // Do you want to add a sort key to your global secondary index
-//       .mockReturnValueOnce(false); // Do you want to add more global secondary indexes to your table?
+  it('updateWalkthrough() auth+guest + update remove guest permission ', async () => {
+    const mockDataBuilder = new S3MockDataBuilder(undefined);
+    //start with auth+guest permissions
+    const currentCLIInputs = mockDataBuilder
+                             .removeMockTriggerFunction()
+                             .addGuestAccess(undefined) //default guest access permissions
+                             .getCLIInputs();
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(()=> currentCLIInputs); //simple-auth 
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
 
-//     prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger for your Table?
+    //**Set Auth permissions in Expected Output (without Delete permissions)
+    const expectedCLIInputsJSON: S3UserInputs = mockDataBuilder
+                                                .removeGuestAccess()
+                                                .getCLIInputs();
 
-//     const returnedCLIInputs = await updateWalkthrough(mockContext);
+    //Update CLI walkthrough (update auth permission)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
+      .mockResolvedValueOnce(mockDataBuilder.defaultAuthPerms) /** Update Auth Permission in CLI */
 
-//     const expectedCLIInputsJSON: DynamoDBCLIInputs = {
-//       resourceName: 'mockresourcename',
-//       tableName: 'mocktablename',
-//       partitionKey: {
-//         fieldName: 'id',
-//         fieldType: FieldType.string,
-//       },
-//       sortKey: {
-//         fieldName: 'name',
-//         fieldType: FieldType.number,
-//       },
-//       gsi: [
-//         {
-//           name: 'gsiname',
-//           partitionKey: {
-//             fieldName: 'name',
-//             fieldType: FieldType.number,
-//           },
-//         },
-//         {
-//           name: 'updategsiname',
-//           partitionKey: {
-//             fieldName: 'col',
-//             fieldType: FieldType.string,
-//           },
-//         },
-//       ],
-//       triggerFunctions: [],
-//     };
+    prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
+    stateManager.getMeta = jest.fn().mockReturnValue( S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthrough );
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
 
-//     expect(returnedCLIInputs).toEqual(expectedCLIInputsJSON);
-//     expect(DynamoDBInputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
-//   });
-// });
+  /**
+   * Update Group Permission Checks
+   */
+  it('updateWalkthrough() simple-auth + update add group(individual) permission ', async () => {
+    const mockDataBuilder = new S3MockDataBuilder(undefined);
+    //start with simple auth permissions
+    const currentCLIInputs = mockDataBuilder
+                             .removeMockTriggerFunction()
+                             .getCLIInputs();
+    //Update Group list function in context
+    mockContext.amplify.getUserPoolGroupList = ()=>Object.keys( mockDataBuilder.mockGroupAccess );
+
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(()=> currentCLIInputs); //simple-auth 
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+
+    //**Set Auth permissions in Expected Output (without Delete permissions)
+    const expectedCLIInputsJSON: S3UserInputs = mockDataBuilder
+                                                .removeAuthAccess()
+                                                .addGroupAccess()
+                                                .getCLIInputs();
+
+    //Update CLI walkthrough (update auth permission)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce( UserPermissionTypeOptions.INDIVIDUAL_GROUPS ) // Restrict Access By
+      .mockResolvedValueOnce( ['mockAdminGroup', 'mockGuestGroup'] ) //Select Groups
+      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //what kind of access do you want for the admin group
+      .mockResolvedValueOnce( [S3PermissionType.READ] ) //what kind of access fo you want for the guest group
+
+    prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
+    stateManager.getMeta = jest.fn().mockReturnValue( S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthrough );
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
+  it('addWalkthrough() simple-auth + update add (both) group and auth+guest permission ', async () => {
+    const mockDataBuilder = new S3MockDataBuilder(undefined);
+    //start with simple auth permissions
+    const currentCLIInputs = mockDataBuilder
+                             .removeMockTriggerFunction()
+                             .getCLIInputs();
+    //Update Group list function in context
+    mockContext.amplify.getUserPoolGroupList = ()=>Object.keys( mockDataBuilder.mockGroupAccess );
+
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(()=> currentCLIInputs); //simple-auth 
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+
+    //** Add GuestAccess, GroupAccess
+    const expectedCLIInputsJSON: S3UserInputs = mockDataBuilder
+                                                .addGuestAccess(undefined)
+                                                .addGroupAccess()
+                                                .getCLIInputs();
+
+    //Update CLI walkthrough (update auth permission)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce( UserPermissionTypeOptions.BOTH ) // Restrict Access By
+      .mockResolvedValueOnce( S3AccessType.AUTH_AND_GUEST ) // Restrict Access By
+      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //select Auth permissions
+      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ] ) //select Guest permissions
+      .mockResolvedValueOnce( ['mockAdminGroup', 'mockGuestGroup'] ) //Select Groups
+      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //select admin group permissions
+      .mockResolvedValueOnce( [S3PermissionType.READ] ) //select guest group permissions
+
+    prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
+    stateManager.getMeta = jest.fn().mockReturnValue( S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthrough );
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
+
+});
+
+
 
 //Helper class to start with Simple Auth and mutate the CLI Inputs based on Test-Case
 class S3MockDataBuilder {
@@ -345,6 +426,18 @@ class S3MockDataBuilder {
       mockAuthName: S3MockDataBuilder.mockAuthMeta,
     },
   };
+  static mockAmplifyMetaForUpdateWalkthrough = {
+    auth: {
+      mockAuthName: S3MockDataBuilder.mockAuthMeta,
+    },
+    storage : {
+      [S3MockDataBuilder.mockResourceName]: {
+        service : 'S3',
+        providerPlugin: 'awscloudformation',
+        dependsOn: []
+      }
+    }
+  }
   mockGroupAccess = {
     mockAdminGroup: [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE, S3PermissionType.LIST],
     mockGuestGroup: [S3PermissionType.READ, S3PermissionType.LIST],
@@ -416,6 +509,12 @@ class S3MockDataBuilder {
     return this;
   }
 
+  removeGuestAccess() : S3MockDataBuilder {
+    this.cliInputs.storageAccess = S3AccessType.AUTH_ONLY;
+    this.cliInputs.guestAccess = [];
+    return this;
+  }
+
   addMockTriggerFunction(customMockFunctionName : string | undefined): S3MockDataBuilder {
     if (customMockFunctionName){
       this.cliInputs.triggerFunction = customMockFunctionName;
@@ -433,6 +532,12 @@ class S3MockDataBuilder {
   removeAuthAccess(): S3MockDataBuilder {
     this.cliInputs.authAccess = [];
     return this;
+  }
+
+  removeAuthPermission( permissionToBeRemoved : S3PermissionType ): S3MockDataBuilder {
+    const newPermissions = this.defaultAuthPerms.filter( permission => permission !== permissionToBeRemoved );
+    this.cliInputs.authAccess = newPermissions;
+    return this
   }
 
   addGroupAccess(): S3MockDataBuilder {
