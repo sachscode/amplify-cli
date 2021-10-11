@@ -1,4 +1,4 @@
-import { $TSContext, $TSObject } from 'amplify-cli-core';
+import { $TSContext } from 'amplify-cli-core';
 import { run } from '../../commands/storage/remove';
 import * as providerController from '../../provider-utils/awscloudformation/index';
 

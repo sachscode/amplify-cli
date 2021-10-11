@@ -1,17 +1,9 @@
 
 import uuid from 'uuid';
-import { S3AccessType, S3PermissionType, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
+import { S3AccessType, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
 
 export const getAllDefaults = (project: any, shortId : string) : S3UserInputs  => {
   const name = project.projectConfig.projectName.toLowerCase();
-  const authRoleName = {
-    Ref: 'AuthRoleName',
-  };
-
-  const unauthRoleName = {
-    Ref: 'UnauthRoleName',
-  };
-
   const defaults : S3UserInputs = {
     resourceName: `s3${shortId}`,
     policyUUID : shortId,

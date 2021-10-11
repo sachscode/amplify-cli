@@ -165,7 +165,7 @@ export class AmplifyS3ResourceStackTransform {
             });
             // pass stack object
             //TODO: Check Script Options
-            if (typeof overrideProps === 'function' && overrideProps) {
+            if ( overrideProps && typeof overrideProps === 'function' ) {
                 try {
                     this.resourceTemplateObj = overrideProps(this.resourceTemplateObj as AmplifyS3ResourceTemplate);
                     //The vm module enables compiling and running code within V8 Virtual Machine contexts. The vm module is not a security mechanism. Do not use it to run untrusted code.

@@ -3,8 +3,6 @@ import * as ddb from '@aws-cdk/aws-dynamodb';
 import * as s3Cdk from '@aws-cdk/aws-s3';
 import * as iamCdk from '@aws-cdk/aws-iam';
 import { $TSObject } from 'amplify-cli-core';
-import { printErrorAlreadyCreated } from '../service-walkthroughs/s3-errors';
-
 
 export interface AmplifyDDBResourceTemplate {
     dynamoDBTable?: ddb.CfnTable;
@@ -49,13 +47,6 @@ export interface AmplifyS3ResourceTemplate {
     addCfnCondition(props: cdk.CfnConditionProps, logicalId: string): void;
     addCfnResource(props: cdk.CfnResourceProps, logicalId: string): void;
 }
-
-//Helper functions
-const getS3PrivatePolicy = ( policyId: string ) => `Private_policy_${policyId}`;
-const getS3ProtectedPolicy = ( policyId : string ) => `Protected_policy_${policyId}`;
-const getS3PublicPolicy = ( policyId : string ) => `Protected_policy_${policyId}`;
-const getS3ReadPolicy = ( policyId : string ) => `read_policy_${policyId}`;
-const getS3UploadsPolicy = ( policyId : string ) => `Uploads_policy_${policyId}`;
 
 export type AmplifyCfnParamType = {
   params : Array<string>

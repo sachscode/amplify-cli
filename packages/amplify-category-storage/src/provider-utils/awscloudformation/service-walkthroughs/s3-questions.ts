@@ -9,7 +9,7 @@ import {
   S3UserAccessRole,
   S3UserInputs,
 } from '../service-walkthrough-types/s3-user-input-types';
-import { checkIfAuthExists, addTrigger } from './s3-walkthrough';
+import { checkIfAuthExists } from './s3-walkthrough';
 import { S3PermissionMapType } from './s3-user-input-state';
 
 export const permissionMap: S3PermissionMapType = {

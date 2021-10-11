@@ -1,4 +1,4 @@
-import { ResourceDoesNotExistError, ResourceAlreadyExistsError, exitOnNextTick, $TSAny, $TSContext, AmplifyCategories } from 'amplify-cli-core';
+import { ResourceDoesNotExistError, ResourceAlreadyExistsError, $TSContext } from 'amplify-cli-core';
 import { printer } from 'amplify-prompts';
 
 export async function printErrorNoResourcesToUpdate( context : $TSContext ){
