@@ -21,7 +21,7 @@ export const permissionMap: S3PermissionMapType = {
 export enum S3CLITriggerUpdateMenuOptions {
   ADD = 'Add the Trigger',
   UPDATE = 'Update the Trigger',
-  REMOVE = 'Remove the trigger',
+  REMOVE = 'Remove the Trigger',
   SKIP = 'Skip Question',
 }
 

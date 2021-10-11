@@ -132,7 +132,6 @@ export async function  updateWalkthrough(context: any){
 
       let previousUserInput = cliInputsState.getUserInput();
       let cliInputs : S3UserInputs= Object.assign({}, previousUserInput); //overwrite this with updated params
-
       //note: If userPoolGroups have been created/Updated, then they need to be updated in CLI Inputs
       //This check is not required once Auth is integrated with s3-auth-apis.
       const userPoolGroupList = context.amplify.getUserPoolGroupList();
@@ -145,7 +144,6 @@ export async function  updateWalkthrough(context: any){
         cliInputs.authAccess = await askAuthPermissionQuestion(context, previousUserInput);
         cliInputs.guestAccess = await conditionallyAskGuestPermissionQuestion( cliInputs.storageAccess, context, previousUserInput);
       }
-
       //Build userInputs for S3 resources
       if (previousUserInput.triggerFunction && previousUserInput.triggerFunction != "NONE"){
         cliInputs.triggerFunction = await  startUpdateTriggerFunctionFlow( context, resourceName,
@@ -209,7 +207,6 @@ async function startAddTriggerFunctionFlow(
   policyID: string,
   existingTriggerFunction: string | undefined,
 ): Promise<string | undefined> {
-  const { amplify } = context;
   const enableLambdaTriggerOnS3: boolean = await prompter.confirmContinue('Do you want to add a Lambda Trigger for your S3 Bucket?');
   let triggerFunction: string | undefined = undefined;
   if (enableLambdaTriggerOnS3) {

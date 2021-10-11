@@ -10,7 +10,7 @@ import {
   S3TriggerFunctionType,
   S3UserInputs,
 } from '../../../../provider-utils/awscloudformation/service-walkthrough-types/s3-user-input-types';
-import { UserPermissionTypeOptions } from '../../../../provider-utils/awscloudformation/service-walkthroughs/s3-questions';
+import { S3CLITriggerUpdateMenuOptions, UserPermissionTypeOptions } from '../../../../provider-utils/awscloudformation/service-walkthroughs/s3-questions';
 
 jest.mock('amplify-cli-core');
 jest.mock('amplify-prompts');
@@ -394,13 +394,252 @@ describe('update s3 permission walkthrough tests', () => {
 });
 
 
+describe('update s3 lambda-trigger walkthrough tests', () => {
+  let mockContext: $TSContext;
+  beforeEach(() => {
+    //Mock: UUID generation
+    jest.spyOn(uuid, 'v4').mockReturnValue(S3MockDataBuilder.mockPolicyUUID);
+
+    //Mock: Context/Amplify-Meta
+    mockContext = {
+      amplify: {
+        getUserPoolGroupList: () => [],
+        getProjectDetails: () => {
+          return {
+            projectConfig: {
+              projectName: 'mockProject',
+            },
+            amplifyMeta: {
+              auth: S3MockDataBuilder.mockAuthMeta,
+              storage: {
+                [S3MockDataBuilder.mockResourceName]: {
+                  service: 'S3',
+                  providerPlugin: 'awscloudformation',
+                  dependsOn: [],
+                },
+              },
+            },
+          };
+        },
+        // eslint-disable-next-line
+        getResourceStatus: () => {
+          return { allResources: S3MockDataBuilder.getMockGetAllResourcesNoExistingLambdas() };
+        }, //eslint-disable-line
+        copyBatch: jest.fn().mockReturnValue(new Promise((resolve, reject) => resolve(true))),
+        updateamplifyMetaAfterResourceAdd: jest.fn().mockReturnValue(new Promise((resolve, reject) => resolve(true))),
+        pathManager: {
+          getBackendDirPath: jest.fn().mockReturnValue('mockTargetDir'),
+        },
+      },
+    } as unknown as $TSContext;
+  });
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+  /**
+   * Update Auth + Guest Tests
+   */
+  it('updateWalkthrough() simple auth + update add trigger ( new lambda)', async () => {
+    const mockDataBuilder = new S3MockDataBuilder(undefined);
+    const currentCLIInputs = mockDataBuilder.removeMockTriggerFunction().getCLIInputs();
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(() => currentCLIInputs); //simple-auth
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+
+    //**Set Auth permissions in Expected Output (without Delete permissions)
+    const expectedCLIInputsJSON: S3UserInputs = mockDataBuilder.addMockTriggerFunction(undefined).getCLIInputs();
+
+    //Update CLI walkthrough (update auth permission)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
+      .mockResolvedValueOnce([
+        S3PermissionType.CREATE,
+        S3PermissionType.READ,
+        S3PermissionType.DELETE,
+      ]); /** Update Auth Permission in CLI */
+
+    prompter.confirmContinue = jest
+      .fn()
+      .mockReturnValueOnce(true) //Do you want to add a Lambda Trigger ?
+      .mockResolvedValueOnce(false); //Do you want to edit the lamdba function now?
+
+    stateManager.getMeta = jest.fn().mockReturnValue(S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthroughLambda);
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
+
+  it('updateWalkthrough() simple auth + new lambda + update remove trigger ', async () => {
+    //Given we have cliInputs with simple auth + Lambda trigger [ existingDataBuilder ]
+    //When we use CLI to remove Lambda trigger.
+    //Then we expect that the saveCliInputPayload is called with no Lambda trigger [ expectedCLIInputsJSON ]
+
+    const existingDataBuilder = new S3MockDataBuilder(undefined);
+    const currentCLIInputs = existingDataBuilder.addMockTriggerFunction(undefined).getCLIInputs();
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(() => currentCLIInputs); //simple-auth
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+
+    //**Set simple auth and remove triggerFunction
+    const mockExpectedDataBuilder = new S3MockDataBuilder(undefined);
+    const expectedCLIInputsJSON: S3UserInputs = mockExpectedDataBuilder.removeMockTriggerFunction().getCLIInputs();
+
+    //Update CLI walkthrough (update auth permission)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
+      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.REMOVE); /** Select one of Update/Remove Skip*/
+
+    stateManager.getMeta = jest.fn().mockReturnValue(S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthroughLambda);
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
+
+  it('updateWalkthrough() simple auth + new lambda + update change trigger (existing function)', async () => {
+    //Given we have auth with multiple existing functions
+    //and cliInputs with simple auth + Lambda trigger [ existingDataBuilder ]
+    //When we use CLI to change Lambda trigger with one of the existing functtions.
+    //Then we expect that the saveCliInputPayload is called with the newly selected Lambda trigger [ expectedCLIInputsJSON ]
+
+    //Add Existing Lambda functions in resource status
+    mockContext.amplify.getResourceStatus = () => {
+      return { allResources: S3MockDataBuilder.getMockGetAllResources2ExistingLambdas() };
+    };
+
+    const existingDataBuilder = new S3MockDataBuilder(undefined);
+    const currentCLIInputs = existingDataBuilder.addMockTriggerFunction(undefined).getCLIInputs();
+
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(() => currentCLIInputs); //simple-auth
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+
+    //**Set simple-auth and set mockExistingFunctionName1 as the new trigger function
+    const mockExpectedDataBuilder = new S3MockDataBuilder(undefined);
+    const expectedCLIInputsJSON: S3UserInputs = mockExpectedDataBuilder
+      .addMockTriggerFunction(S3MockDataBuilder.mockExistingFunctionName1)
+      .getCLIInputs();
+
+    //Update CLI walkthrough (update trigger function with existing function)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
+      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.UPDATE) /** Select one of Update/Remove Skip*/
+      .mockResolvedValueOnce(S3TriggerFunctionType.EXISTING_FUNCTION)
+      .mockResolvedValueOnce(S3MockDataBuilder.mockExistingFunctionName1);
+
+    stateManager.getMeta = jest.fn().mockReturnValue(S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthroughLambda);
+
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
+
+  it('updateWalkthrough() simple auth + new lambda + update change trigger (existing function)', async () => {
+    //Given we have auth with multiple existing functions
+    //and cliInputs with simple auth + Lambda trigger (one of the existing trigger functions) [ existingDataBuilder ]
+    //When we use CLI to change Lambda trigger with a new lambda function.
+    //Then we expect that the saveCliInputPayload is called with the newly created lambda function trigger[ expectedCLIInputsJSON ]
+
+    //Add Existing Lambda functions in resource status
+    mockContext.amplify.getResourceStatus = () => {
+      return { allResources: S3MockDataBuilder.getMockGetAllResources2ExistingLambdas() };
+    };
+
+    const existingDataBuilder = new S3MockDataBuilder(undefined);
+    const currentCLIInputs = existingDataBuilder.addMockTriggerFunction(S3MockDataBuilder.mockExistingFunctionName1).getCLIInputs();
+
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(() => currentCLIInputs); //simple-auth
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+
+    //**Set simple-auth and set mockExistingFunctionName1 as the new trigger function
+    const mockExpectedDataBuilder = new S3MockDataBuilder(undefined);
+    const expectedCLIInputsJSON: S3UserInputs = mockExpectedDataBuilder
+      .addMockTriggerFunction(S3MockDataBuilder.mockFunctionName)
+      .getCLIInputs();
+
+    //Update CLI walkthrough (update trigger function with existing function)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
+      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.UPDATE) /** Select one of Update/Remove Skip*/
+      .mockResolvedValueOnce(S3TriggerFunctionType.NEW_FUNCTION);
+
+    //add new function
+    prompter.confirmContinue = jest.fn().mockResolvedValueOnce(false); //Do you want to edit the lamdba function now?
+
+    stateManager.getMeta = jest.fn().mockReturnValue(S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthroughLambda);
+
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
+
+  it('updateWalkthrough() simple auth + new lambda + update change trigger (new function)', async () => {
+    //Given we have auth with multiple existing functions
+    //and cliInputs with simple auth + Lambda trigger (new trigger function) [ existingDataBuilder ]
+    //When we use CLI to change Lambda trigger with a new lambda function.
+    //Then we expect that the saveCliInputPayload is called with the newly created lambda function trigger[ expectedCLIInputsJSON ]
+
+    //Add Existing Lambda functions in resource status
+    mockContext.amplify.getResourceStatus = () => {
+      return { allResources: S3MockDataBuilder.getMockGetAllResources2ExistingLambdas() };
+    };
+
+    const existingDataBuilder = new S3MockDataBuilder(undefined);
+    const currentCLIInputs = existingDataBuilder.addMockTriggerFunction(undefined).getCLIInputs();
+
+    jest.spyOn(S3InputState.prototype, 'cliInputFileExists').mockImplementation(() => true); //CLI Input exists
+    jest.spyOn(S3InputState.prototype, 'getUserInput').mockImplementation(() => currentCLIInputs); //simple-auth
+    jest.spyOn(S3InputState.prototype, 'saveCliInputPayload').mockImplementation(() => true);
+    jest.spyOn(AmplifyS3ResourceStackTransform.prototype, 'transform').mockImplementation(() => Promise.resolve());
+
+    //**Set simple-auth and set mockExistingFunctionName1 as the new trigger function
+    const mockExpectedDataBuilder = new S3MockDataBuilder(undefined);
+    const expectedCLIInputsJSON: S3UserInputs = mockExpectedDataBuilder
+      .addMockTriggerFunction(S3MockDataBuilder.mockFunctioName2)
+      .getCLIInputs();
+
+    //Update CLI walkthrough (update trigger function with existing function)
+    prompter.pick = jest
+      .fn()
+      .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
+      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.UPDATE) /** Select one of Update/Remove Skip*/
+      .mockResolvedValueOnce(S3TriggerFunctionType.NEW_FUNCTION);
+
+    //add new function
+    prompter.confirmContinue = jest.fn().mockResolvedValueOnce(false); //Do you want to edit the lamdba function now?
+
+    stateManager.getMeta = jest.fn().mockReturnValue(S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthroughLambda);
+
+    //The newly generated function-name should use UUID2
+    jest.spyOn(uuid, 'v4').mockReturnValueOnce(S3MockDataBuilder.mockPolicyUUID2);
+
+    const returnedResourcename = await updateWalkthrough(mockContext);
+    expect(returnedResourcename).toEqual(S3MockDataBuilder.mockResourceName);
+    expect(S3InputState.prototype.saveCliInputPayload).toHaveBeenCalledWith(expectedCLIInputsJSON);
+  });
+});
+
 
 //Helper class to start with Simple Auth and mutate the CLI Inputs based on Test-Case
 class S3MockDataBuilder {
   static mockBucketName = 'mockBucketName';
   static mockResourceName = 'mockResourceName';
   static mockPolicyUUID = 'cafe2021';
+  static mockPolicyUUID2 = 'cafe2022';
   static mockFunctionName = `S3Trigger${S3MockDataBuilder.mockPolicyUUID}`;
+  static mockFunctioName2 = `S3Trigger${S3MockDataBuilder.mockPolicyUUID2}`;
   static mockExistingFunctionName1 = 'triggerHandlerFunction1';
   static mockExistingFunctionName2 = 'triggerHandlerFunction2';
   static mockFilePath = '';
@@ -435,6 +674,29 @@ class S3MockDataBuilder {
         service : 'S3',
         providerPlugin: 'awscloudformation',
         dependsOn: []
+      }
+    }
+  }
+
+  static mockAmplifyMetaForUpdateWalkthroughLambda = {
+    auth: {
+      mockAuthName: S3MockDataBuilder.mockAuthMeta,
+    },
+    storage : {
+      [S3MockDataBuilder.mockResourceName]: {
+        service : 'S3',
+        providerPlugin: 'awscloudformation',
+        dependsOn: [
+          {
+            category: "function",
+            resourceName: S3MockDataBuilder.mockFunctionName,
+            attributes: [
+              "Name",
+              "Arn",
+              "LambdaExecutionRole"
+            ]
+          }
+        ]
       }
     }
   }
