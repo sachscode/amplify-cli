@@ -38,6 +38,9 @@ describe('add s3 walkthrough tests', () => {
             },
           };
         },
+        getUserPoolGroupList: ()=>{
+          return [];
+        },
         // eslint-disable-next-line
         getResourceStatus: () => {
           return { allResources: S3MockDataBuilder.getMockGetAllResourcesNoExistingLambdas() };

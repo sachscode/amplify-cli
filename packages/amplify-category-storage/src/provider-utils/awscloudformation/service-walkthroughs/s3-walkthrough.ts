@@ -55,28 +55,29 @@ export async function addWalkthrough( context: $TSContext, defaultValuesFilename
     exitOnNextTick(0);
   } else {
     //Ask S3 walkthrough questions
+
     const policyID = buildShortUUID(); //prefix/suffix for all resources.
     const defaultValues = getAllDefaults(amplify.getProjectDetails(), policyID );
     const resourceName = await askResourceNameQuestion(context, defaultValues); //Cannot be changed once added
     const bucketName = await askBucketNameQuestion(context, defaultValues, resourceName); //Cannot be changed once added
-    const storageAccess = await askWhoHasAccessQuestion(context, defaultValues); //Auth/Guest/AuthandGuest
-    const authAccess = await askAuthPermissionQuestion(context, defaultValues);
-    const guestAccess = await conditionallyAskGuestPermissionQuestion( storageAccess, context, defaultValues);
+    let cliInputs : S3UserInputs = Object.assign({}, defaultValues );
+    cliInputs.policyUUID = policyID;
+    cliInputs.resourceName = resourceName;
+    cliInputs.bucketName = bucketName;
+    //Check if user-pools are already created
+    const userPoolGroupList = context.amplify.getUserPoolGroupList();
+    if ( userPoolGroupList && userPoolGroupList.length > 0){
+      //Ask Groups, Auth or Guest , or Both access
+      cliInputs = await askGroupOrIndividualAccessFlow(userPoolGroupList, context, cliInputs);
+      //Ask S3 walkthrough questions
+    } else {
+      //Ask Auth or Guest access
+      cliInputs.storageAccess = await await askWhoHasAccessQuestion(context, defaultValues); //Auth/Guest
+      cliInputs.authAccess = await askAuthPermissionQuestion(context, defaultValues);
+      cliInputs.guestAccess = await await conditionallyAskGuestPermissionQuestion( cliInputs.storageAccess, context, defaultValues);
+    }
     const triggerFunction = await startAddTriggerFunctionFlow(context, resourceName, policyID, undefined );
-
-
-    //Build userInputs for S3 resources
-    let cliInputs : S3UserInputs = {
-                                      resourceName,
-                                      bucketName,
-                                      policyUUID : policyID,
-                                      storageAccess,
-                                      authAccess : authAccess,
-                                      guestAccess : guestAccess,
-                                      triggerFunction : (triggerFunction)?triggerFunction:"NONE",
-                                      groupAccess : {},
-                                      groupList: []
-                                    }
+    cliInputs.triggerFunction = (triggerFunction)?triggerFunction:"NONE";
 
     //Save CLI Inputs payload
     const cliInputsState = new S3InputState(cliInputs.resourceName as string, cliInputs);
