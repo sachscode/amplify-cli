@@ -1,16 +1,15 @@
-import { exitOnNextTick, $TSContext } from 'amplify-cli-core';
-import { printer, prompter, alphanumeric, and, minLength, maxLength } from 'amplify-prompts';
-import _ from 'lodash';
+import { $TSContext, exitOnNextTick } from 'amplify-cli-core';
+import { alphanumeric, and, maxLength, minLength, printer, prompter } from 'amplify-prompts';
 import {
   getRoleAccessDefaultValues,
   S3AccessType,
   S3PermissionType,
   S3TriggerFunctionType,
   S3UserAccessRole,
-  S3UserInputs,
+  S3UserInputs
 } from '../service-walkthrough-types/s3-user-input-types';
-import { checkIfAuthExists } from './s3-walkthrough';
 import { S3PermissionMapType } from './s3-user-input-state';
+import { checkIfAuthExists } from './s3-walkthrough';
 
 export const permissionMap: S3PermissionMapType = {
   'create/update': [S3PermissionType.CREATE],
@@ -160,7 +159,8 @@ export async function askUserPoolGroupSelectionQuestion(
 ): Promise<string[]> {
   const message = 'Select groups:';
   const choices = userPoolGroupList;
-  const selectedIndexes = defaultValues.groupList ? getIndexArray(choices, defaultValues.groupList) : undefined;
+  const selectedChoices = (defaultValues.groupAccess)? Object.keys(defaultValues.groupAccess):[];
+  const selectedIndexes = defaultValues.groupList ? getIndexArray(choices, selectedChoices) : undefined;
   const userPoolGroups = await prompter.pick<'many', string>(message, choices, { returnSize: 'many', initial: selectedIndexes });
   //Selected user-pool groups
   return userPoolGroups as string[];
@@ -319,7 +319,7 @@ function getIndexArray(choices: string[], selectedChoices: string[]): Array<numb
   let selectedIndexes: Array<number> = [];
   for (const choice of selectedChoices) {
     const index = choices.indexOf(choice);
-    if (index > 0) {
+    if (index >= 0) {
       selectedIndexes.push(index);
     }
   }

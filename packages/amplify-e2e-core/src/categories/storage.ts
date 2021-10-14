@@ -378,8 +378,8 @@ export function addS3AndAuthWithAuthOnlyAccess(cwd: string, settings: any): Prom
       .sendCarriageReturn() // Default name
       .wait('Who should have access')
       .sendCarriageReturn() // Auth users only
-      .wait('What kind of access do you want for Authenticated users')
-      .send('i') // Select all
+      .wait('What kind of access do you want for')
+      .sendCtrlA() // Select all
       .sendCarriageReturn()
       .wait('Do you want to add a Lambda Trigger for your S3 Bucket')
       .sendLine('n')
@@ -406,10 +406,15 @@ export function addS3WithGuestAccess(cwd: string, settings: any): Promise<void> 
       .wait('Who should have access')
       .send(KEY_DOWN_ARROW)
       .sendCarriageReturn() // Auth and guest users
-      .wait('What kind of access do you want for Authenticated users')
-      .send('i') // Select all
+      .wait('What kind of access do you want for')
+      .send(' ') // Create
+      .send(KEY_DOWN_ARROW)
+      .send(' ') // Read
+      .send(KEY_DOWN_ARROW)
+      .send(' ') // Delete
+      .send(KEY_DOWN_ARROW)
       .sendCarriageReturn()
-      .wait('What kind of access do you want for Guest users')
+      .wait('What kind of access do you want for')
       .send(KEY_DOWN_ARROW)
       .send(' ') // Select read
       .sendCarriageReturn()
@@ -440,10 +445,13 @@ export function addS3WithGroupAccess(cwd: string, settings: any): Promise<void> 
       .send(KEY_DOWN_ARROW)
       .sendCarriageReturn() // Individual groups
       .wait('Select groups')
-      .send('i') // Select all groups
+      .send(' ')
+      .send(KEY_DOWN_ARROW) //select Admin
+      .send(' ')
+      .send(KEY_DOWN_ARROW) //select User
       .sendCarriageReturn()
       .wait('What kind of access do you want') // for <UserGroup1> users?
-      .send('i') // Select all permissions
+      .sendCtrlA() // Select all permissions
       .sendCarriageReturn()
       .wait('What kind of access do you want') // for <UserGroup2> users?
       .send(' ') // Select create/update
@@ -479,9 +487,6 @@ export function addS3WithTrigger(cwd: string, settings: any): Promise<void> {
       .sendCarriageReturn()
       .wait('Do you want to add a Lambda Trigger for your S3 Bucket')
       .sendLine('y')
-      .wait('Select from the following options')
-      .send(KEY_DOWN_ARROW)
-      .sendCarriageReturn()
       .wait('Do you want to edit the local')
       .sendLine('n')
       .sendCarriageReturn()
@@ -514,7 +519,7 @@ export function updateS3AddTrigger(cwd: string, settings: any): Promise<void> {
       .sendLine('y')
       .wait('Select from the following options')
       .send(KEY_DOWN_ARROW)
-      .sendCarriageReturn()
+      .sendCarriageReturn() //Create a new function
       .wait('Do you want to edit the local')
       .sendLine('n')
       .sendCarriageReturn()
@@ -569,6 +574,24 @@ export function addS3Storage(projectDir: string): Promise<void> {
     });
   });
 }
+
+export function overrideS3(cwd: string, settings: {}) {
+  return new Promise((resolve, reject) => {
+    const args = ['override', 'storage'];
+    spawn(getCLIPath(), args, { cwd, stripColors: true })
+      .wait('Do you want to edit override.ts file now?')
+      .sendConfirmNo()
+      .sendEof()
+      .run((err: Error) => {
+        if (!err) {
+          resolve({});
+        } else {
+          reject(err);
+        }
+      });
+  });
+}
+
 
 export function addS3StorageWithSettings(projectDir: string, settings: AddStorageSettings): Promise<void> {
   return new Promise((resolve, reject) => {

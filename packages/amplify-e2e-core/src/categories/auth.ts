@@ -214,7 +214,7 @@ export function addAuthwithUserPoolGroupsViaAPIWithTrigger(cwd: string, settings
       .sendCarriageReturn()
       .wait(`Specify the app's refresh token expiration period (in days):`)
       .sendCarriageReturn()
-      .wait(' Do you want to specify the user attributes this app can read and write?')
+      .wait('Do you want to specify the user attributes this app can read and write?')
       .sendCarriageReturn()
       .wait('Do you want to enable any of the following capabilities?')
       .send(KEY_DOWN_ARROW)

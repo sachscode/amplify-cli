@@ -188,9 +188,6 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
             });
         }
 
-        // let s3CfnDependsOnParams : Array<AmplifyCfnParamType> = this._getDependsOnParameters()
-        // s3CfnParams = s3CfnParams.concat( s3CfnDependsOnParams );
-
         //insert into the stack
         s3CfnParams.map(params => this._setCFNParams(params) )
     }

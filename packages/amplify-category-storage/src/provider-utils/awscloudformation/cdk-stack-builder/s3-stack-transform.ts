@@ -1,16 +1,13 @@
-import {S3PermissionType, S3UserInputs} from '../service-walkthrough-types/s3-user-input-types'
-import {canResourceBeTransformed, S3CFNDependsOn, S3CFNPermissionType, S3InputState} from '../service-walkthroughs/s3-user-input-state';
-import {AmplifyS3ResourceCfnStack} from './s3-stack-builder';
 import * as cdk from '@aws-cdk/core';
-import {App} from '@aws-cdk/core';
-import {AmplifyBuildParamsPermissions, AmplifyCfnParamType, AmplifyS3ResourceInputParameters, AmplifyS3ResourceTemplate} from './types'
-import * as fs from 'fs-extra';
-import { $TSContext, $TSAny, AmplifyCategories, JSONUtilities, pathManager, buildOverrideDir, IAmplifyResource, CLISubCommandType } from 'amplify-cli-core';
+import { App } from '@aws-cdk/core';
+import { $TSAny, $TSContext, AmplifyCategories, buildOverrideDir, CLISubCommandType, IAmplifyResource, JSONUtilities, pathManager } from 'amplify-cli-core';
 import { formatter, printer } from 'amplify-prompts';
-import path from 'path';
-
-
-
+import * as fs from 'fs-extra';
+import * as path from 'path';
+import { S3PermissionType, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
+import { canResourceBeTransformed, S3CFNDependsOn, S3CFNPermissionType, S3InputState } from '../service-walkthroughs/s3-user-input-state';
+import { AmplifyS3ResourceCfnStack } from './s3-stack-builder';
+import { AmplifyBuildParamsPermissions, AmplifyCfnParamType, AmplifyS3ResourceInputParameters, AmplifyS3ResourceTemplate } from './types';
 
 /**
  * Builds S3 resource stack, ingest overrides.ts and generates output-files.
@@ -51,11 +48,12 @@ export class AmplifyS3ResourceStackTransform {
         //Only generate stack if truthsy
         if ( validationResult ) {
             this.generateCfnInputParameters();
+
             // Generate cloudformation stack from cli-inputs.json
             await this.generateStack(this.context);
 
             // Modify cloudformation files based on overrides
-            this.applyOverrides()
+            await this.applyOverrides()
 
             // Save generated cloudformation.json and parameters.json files
             this.saveBuildFiles( commandType );
@@ -181,6 +179,11 @@ export class AmplifyS3ResourceStackTransform {
     }
 
     saveBuildFiles( commandType : CLISubCommandType ) {
+        if (this.resourceTemplateObj) {
+            // Render CFN Template string and store as member in this.cfn
+            this.cfn = this.resourceTemplateObj.renderCloudFormationTemplate();
+        }
+
         //Store cloudformation-template.json, Parameters.json and Update BackendConfig
         this._saveFilesToLocalFileSystem('cloudformation-template.json', this.cfn);
         this._saveFilesToLocalFileSystem('parameters.json', this.cfnInputParams);
@@ -195,7 +198,7 @@ export class AmplifyS3ResourceStackTransform {
         }
     }
 
-    async generateStack( context : $TSContext ):Promise<string>{
+    async generateStack( context : $TSContext ):Promise<void>{
         // Create Resource Stack from CLI Inputs in this._resourceTemplateObj
         this.resourceTemplateObj = new AmplifyS3ResourceCfnStack(this.app, 'AmplifyS3ResourceStack', this.cliInputs, this.cfnInputParams);
 
@@ -219,9 +222,6 @@ export class AmplifyS3ResourceStackTransform {
         */
         await this.resourceTemplateObj.generateCfnStackResources(context);
 
-        // Render CFN Template string and store as member in this.cfn
-        this.cfn = this.resourceTemplateObj.renderCloudFormationTemplate();
-        return this.cfn;
     }
 
     _addOutputs(){
