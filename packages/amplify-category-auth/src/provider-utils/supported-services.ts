@@ -51,7 +51,7 @@ const supportedServices = {
       },
       {
         key: 'resourceName',
-        question: 'Please provide a friendly name for your resource that will be used to label this category in the project:',
+        question: 'Provide a friendly name for your resource that will be used to label this category in the project:',
         andConditions: [
           {
             preventEdit: 'always',

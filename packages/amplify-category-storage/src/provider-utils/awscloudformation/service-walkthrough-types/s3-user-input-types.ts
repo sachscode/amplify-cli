@@ -29,10 +29,10 @@ export enum S3AccessType  {
 }
 
 export enum S3PermissionType {
-    CREATE = "CREATE",
-    READ = "READ",
-    DELETE = "DELETE",
-    LIST = "LIST"
+    CREATE = 'CREATE',
+    READ = 'READ',
+    DELETE = 'DELETE',
+    LIST = 'LIST'
 }
 
 

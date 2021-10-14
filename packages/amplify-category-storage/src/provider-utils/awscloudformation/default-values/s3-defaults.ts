@@ -1,8 +1,9 @@
 
+import { $TSAny } from 'amplify-cli-core';
 import uuid from 'uuid';
 import { S3AccessType, S3UserInputs } from '../service-walkthrough-types/s3-user-input-types';
 
-export const getAllDefaults = (project: any, shortId : string) : S3UserInputs  => {
+export const getAllDefaults = (project: $TSAny, shortId : string) : S3UserInputs  => {
   const name = project.projectConfig.projectName.toLowerCase();
   const defaults : S3UserInputs = {
     resourceName: `s3${shortId}`,

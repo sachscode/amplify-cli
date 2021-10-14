@@ -106,7 +106,7 @@ export const addS3WithAuthConfigurationMismatchErrorExit = (cwd: string, setting
       .sendCarriageReturn()
       .wait('Please provide a friendly name')
       .sendCarriageReturn()
-      .wait('Please provide bucket name')
+      .wait('Provide bucket name')
       .sendCarriageReturn()
       .wait('Who should have access')
       .sendCarriageReturn()

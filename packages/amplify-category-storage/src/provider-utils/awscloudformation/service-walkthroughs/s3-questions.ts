@@ -1,4 +1,4 @@
-import { $TSContext, exitOnNextTick } from 'amplify-cli-core';
+import { $TSAny, $TSContext, exitOnNextTick } from 'amplify-cli-core';
 import { alphanumeric, and, maxLength, minLength, printer, prompter } from 'amplify-prompts';
 import {
   getRoleAccessDefaultValues,
@@ -10,6 +10,7 @@ import {
 } from '../service-walkthrough-types/s3-user-input-types';
 import { S3PermissionMapType } from './s3-user-input-state';
 import { checkIfAuthExists } from './s3-walkthrough';
+import path from 'path';
 
 export const permissionMap: S3PermissionMapType = {
   'create/update': [S3PermissionType.CREATE],
@@ -46,7 +47,7 @@ export const possibleCRUDOperations = Object.keys(permissionMap).map(el => ({
 export async function askAndOpenFunctionEditor(context: $TSContext, functionName: string) {
   const targetDir = context.amplify.pathManager.getBackendDirPath();
   if (await prompter.confirmContinue(`Do you want to edit the local ${functionName} lambda function now?`)) {
-    await context.amplify.openEditor(context, `${targetDir}/function/${functionName}/src/index.js`);
+    await context.amplify.openEditor(context, path.join(targetDir,'function',functionName,'src','index.js'));
   }
 }
 
@@ -79,8 +80,8 @@ export async function askAndInvokeAuthWorkflow(context: $TSContext) {
   }
 }
 
-export async function askResourceNameQuestion(context: $TSContext, defaultValues: any): Promise<string> {
-  const message = 'Please provide a friendly name for your resource that will be used to label this category in the project:';
+export async function askResourceNameQuestion(context: $TSContext, defaultValues: $TSAny): Promise<string> {
+  const message = 'Provide a friendly name for your resource that will be used to label this category in the project:';
   const defaultResourceName = defaultValues['resourceName'];
   const onErrorMsg = 'Resource name should be alphanumeric';
   const resourceName = await prompter.input<'one', string>(message, { validate: alphanumeric(onErrorMsg), initial: defaultResourceName });
@@ -88,7 +89,7 @@ export async function askResourceNameQuestion(context: $TSContext, defaultValues
 }
 
 export async function askBucketNameQuestion(context: $TSContext, defaultValues: S3UserInputs, resourceName: string): Promise<string> {
-  const message = 'Please provide bucket name:';
+  const message = 'Provide bucket name:';
   const onErrorMsg =
     'Bucket name can only use the following characters: a-z 0-9 - and should have minimum 3 character and max of 47 character';
   const validator = and([alphanumeric(), minLength(3), maxLength(47)], onErrorMsg);
@@ -96,8 +97,8 @@ export async function askBucketNameQuestion(context: $TSContext, defaultValues: 
   return bucketName;
 }
 
-function getChoiceIndexByValue(choices: { name: string; value: any }[], value: any) {
-  const choiceValues = choices.map((choice: { name: string; value: any }) => choice.value);
+function getChoiceIndexByValue(choices: { name: string; value: $TSAny }[], value: $TSAny) {
+  const choiceValues = choices.map((choice: { name: string; value: $TSAny }) => choice.value);
   return choiceValues.indexOf(value);
 }
 
@@ -116,23 +117,6 @@ export async function askWhoHasAccessQuestion(context: $TSContext, defaultValues
   const selectedIndex = defaultValues.storageAccess ? getChoiceIndexByValue(choices, defaultValues.storageAccess) : 0;
   const answer = await prompter.pick<'one', string>(message, choices, { initial: selectedIndex });
   return answer as S3AccessType;
-}
-
-//Function is called after User Pool Group permissions menu selection.
-export async function conditionallyAskWhoHasAccessQuestion(
-  userGroupPermissionSelected: string,
-  context: $TSContext,
-  defaultValues: S3UserInputs,
-): Promise<S3AccessType | undefined> {
-  if (
-    userGroupPermissionSelected === UserPermissionTypeOptions.BOTH ||
-    userGroupPermissionSelected === UserPermissionTypeOptions.AUTH_GUEST_USERS
-  ) {
-    const accessType = await askWhoHasAccessQuestion(context, defaultValues);
-    return accessType;
-  } else {
-    return defaultValues.storageAccess;
-  }
 }
 
 export async function askCRUDQuestion(
@@ -204,7 +188,7 @@ export async function askAuthPermissionQuestion(context: $TSContext, defaultValu
 export async function conditionallyAskGuestPermissionQuestion(
   storageAccess: S3AccessType | undefined,
   context: $TSContext,
-  defaultValues: any,
+  defaultValues: $TSAny,
 ): Promise<S3PermissionType[]> {
   if (storageAccess === S3AccessType.AUTH_AND_GUEST) {
     const permissions: S3PermissionType[] = await askCRUDQuestion(S3UserAccessRole.GUEST, undefined, context, defaultValues);
@@ -214,7 +198,7 @@ export async function conditionallyAskGuestPermissionQuestion(
   }
 }
 
-export async function askGroupPermissionQuestion(groupName: string, context: $TSContext, defaultValues: any) {
+export async function askGroupPermissionQuestion(groupName: string, context: $TSContext, defaultValues: $TSAny) {
   const permissions: S3PermissionType[] = await askCRUDQuestion(S3UserAccessRole.GROUP, groupName, context, defaultValues);
   return permissions;
 }
@@ -326,7 +310,7 @@ function getIndexArray(choices: string[], selectedChoices: string[]): Array<numb
   return selectedIndexes;
 }
 
-function getIndexArrayByValue(choices: { name: string; value: any }[], selectedChoiceValues: string[]): Array<number> {
+function getIndexArrayByValue(choices: { name: string; value: $TSAny }[], selectedChoiceValues: string[]): Array<number> {
   let selectedIndexes: Array<number> = [];
   const choiceValues = choices?.map(choice => choice.value);
   if (choiceValues) {

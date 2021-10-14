@@ -339,7 +339,7 @@ export function addS3(cwd: string, settings: any): Promise<void> {
       .sendCarriageReturn()
       .wait('Please provide a friendly name')
       .sendCarriageReturn()
-      .wait('Please provide bucket name')
+      .wait('Provide bucket name')
       .sendCarriageReturn()
       .wait('Who should have access')
       .sendCarriageReturn()
@@ -374,7 +374,7 @@ export function addS3AndAuthWithAuthOnlyAccess(cwd: string, settings: any): Prom
       .sendCarriageReturn() // No, I am done.
       .wait('Please provide a friendly name for your resource')
       .sendCarriageReturn() // Default name
-      .wait('Please provide bucket name')
+      .wait('Provide bucket name')
       .sendCarriageReturn() // Default name
       .wait('Who should have access')
       .sendCarriageReturn() // Auth users only
@@ -401,7 +401,7 @@ export function addS3WithGuestAccess(cwd: string, settings: any): Promise<void> 
       .sendCarriageReturn() // Content
       .wait('Please provide a friendly name for your resource')
       .sendCarriageReturn() // Default name
-      .wait('Please provide bucket name')
+      .wait('Provide bucket name')
       .sendCarriageReturn() // Default name
       .wait('Who should have access')
       .send(KEY_DOWN_ARROW)
@@ -439,7 +439,7 @@ export function addS3WithGroupAccess(cwd: string, settings: any): Promise<void> 
       .sendCarriageReturn() // Content
       .wait('Please provide a friendly name for your resource')
       .sendCarriageReturn() // Default name
-      .wait('Please provide bucket name')
+      .wait('Provide bucket name')
       .sendCarriageReturn() // Default name
       .wait('Restrict access by')
       .send(KEY_DOWN_ARROW)
@@ -478,7 +478,7 @@ export function addS3WithTrigger(cwd: string, settings: any): Promise<void> {
       .sendCarriageReturn()
       .wait('Please provide a friendly name')
       .sendCarriageReturn()
-      .wait('Please provide bucket name')
+      .wait('Provide bucket name')
       .sendCarriageReturn()
       .wait('Who should have access')
       .sendCarriageReturn()
@@ -544,9 +544,9 @@ export function addS3Storage(projectDir: string): Promise<void> {
     ]);
 
     chain
-      .wait('Please provide a friendly name for your resource that will be used to label this category in the project:')
+      .wait('Provide a friendly name for your resource that will be used to label this category in the project:')
       .sendCarriageReturn()
-      .wait('Please provide bucket name:')
+      .wait('Provide bucket name:')
       .sendCarriageReturn();
 
     singleSelect(chain.wait('Who should have access:'), 'Auth and guest users', ['Auth users only', 'Auth and guest users']);
@@ -603,9 +603,9 @@ export function addS3StorageWithSettings(projectDir: string, settings: AddStorag
     ]);
 
     chain
-      .wait('Please provide a friendly name for your resource that will be used to label this category in the project:')
+      .wait('Provide a friendly name for your resource that will be used to label this category in the project:')
       .sendLine(settings.resourceName)
-      .wait('Please provide bucket name:')
+      .wait('Provide bucket name:')
       .sendLine(settings.bucketName);
 
     singleSelect(chain.wait('Who should have access:'), 'Auth and guest users', ['Auth users only', 'Auth and guest users']);

@@ -3,7 +3,6 @@ import * as cdk from '@aws-cdk/core';
 import * as s3Cdk from '@aws-cdk/aws-s3';
 import * as iamCdk from '@aws-cdk/aws-iam';
 import * as lambdaCdk from '@aws-cdk/aws-lambda';
-
 import {AmplifyResourceCfnStack, AmplifyS3ResourceTemplate, AmplifyCfnParamType, AmplifyBuildParamsPermissions, AmplifyS3ResourceInputParameters} from './types';
 import { S3UserInputs, defaultS3UserInputs, GroupAccessType, S3PermissionType } from '../service-walkthrough-types/s3-user-input-types';
 import { $TSAny, $TSContext, $TSObject } from 'amplify-cli-core';
@@ -47,9 +46,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
         this.templateOptions.templateFormatVersion = CFN_TEMPLATE_FORMAT_VERSION;
         this.templateOptions.description = S3_ROOT_CFN_DESCRIPTION;
         this.s3BucketName = this.buildBucketName();
-        const projectRoot = pathManager.findProjectRoot();
-        const amplifyMetaFile = stateManager.getMeta(projectRoot);
-        this.s3DependsOnResources = []; // to be saved to amplifyMetaFile.storage[s3ResourceName].dependsOn
+        this.s3DependsOnResources = [];
     }
 
     public getS3ResourceFriendlyName():string {

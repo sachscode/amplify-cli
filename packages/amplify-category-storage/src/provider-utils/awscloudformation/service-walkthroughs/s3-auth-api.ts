@@ -6,9 +6,9 @@ import { S3InputState } from "./s3-user-input-state";
 
 //DOWNSTREAM API: function to be called from  Auth or Auth event handler
 export async function saveUserPoolGroupsInUserInput( resourceName : string, userPoolGroups : Array<string> ): Promise<S3UserInputs>{
-    let cliInputsState = new S3InputState(resourceName, undefined);
+    const cliInputsState = new S3InputState(resourceName, undefined);
     cliInputsState.setPoolGroupList(userPoolGroups);
-    let userInput : S3UserInputs = cliInputsState.getUserInput();
+    const userInput : S3UserInputs = cliInputsState.getUserInput();
     cliInputsState.saveCliInputPayload(userInput);
     return userInput;
 }

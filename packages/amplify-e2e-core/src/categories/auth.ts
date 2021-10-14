@@ -184,7 +184,7 @@ export function addAuthwithUserPoolGroupsViaAPIWithTrigger(cwd: string, settings
       .wait('Select the authentication/authorization services that you want to use:')
       .send(KEY_DOWN_ARROW)
       .sendCarriageReturn()
-      .wait('Please provide a friendly name for your resource that will be used to label this category in the project:')
+      .wait('Provide a friendly name for your resource that will be used to label this category in the project:')
       .sendCarriageReturn()
       .wait('Please provide a name for your user pool:')
       .sendCarriageReturn()

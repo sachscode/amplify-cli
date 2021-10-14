@@ -68,11 +68,7 @@ export class AmplifyS3ResourceStackTransform {
      * @returns All the dependsOn params to be inserted into amplify-meta by the category-level caller.
      */
     public getS3DependsOn(): S3CFNDependsOn[]|undefined {
-        if ( this.resourceTemplateObj ){
-            return this.resourceTemplateObj.getS3DependsOn();
-        } else {
-            return undefined;
-        }
+        return this.resourceTemplateObj ? this.resourceTemplateObj.getS3DependsOn() : undefined;
     }
 
     generateCfnInputParameters() {
@@ -81,14 +77,14 @@ export class AmplifyS3ResourceStackTransform {
         const permissionCRUD = [ S3PermissionType.CREATE,
                                  S3PermissionType.READ,
                                  S3PermissionType.DELETE] ;
-        const permissionC = [S3PermissionType.CREATE];
+        const permissionCreate = [S3PermissionType.CREATE];
         //DEFAULT Parameters
         const defaultS3PermissionsAuthenticatedPrivate = permissionCRUD;
         const defaultS3PermissionsAuthenticatedProtected = permissionCRUD;
         const defaultS3PermissionsAuthenticatedPublic = permissionCRUD;
-        const defaultS3PermissionsAuthenticatedUploads = permissionC;
+        const defaultS3PermissionsAuthenticatedUploads = permissionCreate;
         const defaultS3PermissionsGuestPublic = permissionCRUD;
-        const defaultS3PermissionsGuestUploads = permissionC;
+        const defaultS3PermissionsGuestUploads = permissionCreate;
 
 
         this.cfnInputParams = {

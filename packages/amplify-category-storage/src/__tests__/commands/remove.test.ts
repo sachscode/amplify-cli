@@ -11,7 +11,6 @@ providerController_mock.updateResource.mockImplementation = jest.fn().mockImplem
 });
 
 describe('remove ddb command tests', () => {
-  const provider = 'awscloudformation';
   let mockContext: $TSContext;
 
   beforeEach(() => {
@@ -47,7 +46,6 @@ describe('remove ddb command tests', () => {
 
 
 describe('remove s3 command tests', () => {
-  const provider = 'awscloudformation';
   let mockContext: $TSContext;
 
   beforeEach(() => {
