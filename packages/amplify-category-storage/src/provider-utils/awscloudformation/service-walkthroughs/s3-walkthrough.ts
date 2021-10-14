@@ -168,16 +168,18 @@ export async function  updateWalkthrough(context: any){
  * - converts old context files into cliInputs and transforms into cloudformation.
  * - removes all old artifacs
  * @param context
- * @param projectPath
  * @param resourceName
  */
-export function migrateCategory(context: any, projectPath: any, resourceName: any){
+export async function migrateCategory(context: any, resourceName: any): Promise<string|undefined> {
   let cliInputsState = new S3InputState(resourceName, undefined);
   //Check if migration is required
   if (!cliInputsState.cliInputFileExists()){
       cliInputsState.migrate();
-      const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context );
+      const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context);
       stackGenerator.transform( CLISubCommandType.MIGRATE );
+      return stackGenerator.cfn;
+  } else {
+    return undefined;
   }
 }
 
