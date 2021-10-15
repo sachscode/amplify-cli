@@ -43,8 +43,7 @@ export class AmplifyS3ResourceStackTransform {
     }
 
     async transform( commandType : CLISubCommandType ) {
-        //const validationResult =   await this.cliInputsState.isCLIInputsValid();
-        const validationResult = true;
+        const validationResult =   await this.cliInputsState.isCLIInputsValid();
         //Only generate stack if truthsy
         if ( validationResult ) {
             this.generateCfnInputParameters();
@@ -60,7 +59,6 @@ export class AmplifyS3ResourceStackTransform {
         } else {
             throw new Error("cli-inputs.json has been altered or doesn't match input-schema for the resource");
         }
-
     }
 
     /**
