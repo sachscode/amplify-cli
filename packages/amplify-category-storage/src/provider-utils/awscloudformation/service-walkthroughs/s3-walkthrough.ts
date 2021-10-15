@@ -177,7 +177,7 @@ export async function migrateCategory(context: any, resourceName: any): Promise<
       cliInputsState.migrate();
       const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context);
       stackGenerator.transform( CLISubCommandType.MIGRATE );
-      return stackGenerator.cfn;
+      return stackGenerator.getCFN();
   } else {
     return undefined;
   }

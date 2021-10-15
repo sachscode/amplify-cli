@@ -24,14 +24,14 @@ export async function transformS3ResourceStack(context: $TSContext, resource: IA
 
 //Stack transformer for S3
 export class AmplifyS3ResourceStackTransform {
-    app: App;
-    cliInputs: S3UserInputs;
-    resourceTemplateObj: AmplifyS3ResourceCfnStack | undefined;
-    cliInputsState: S3InputState;
-    cfn!: string;
-    cfnInputParams!: AmplifyS3ResourceInputParameters;
-    context : $TSContext;
-    resourceName : string;
+    private app: App;
+    private cliInputs: S3UserInputs;
+    private resourceTemplateObj: AmplifyS3ResourceCfnStack | undefined;
+    private cliInputsState: S3InputState;
+    private cfn!: string;
+    private cfnInputParams!: AmplifyS3ResourceInputParameters;
+    private context : $TSContext;
+    private resourceName : string;
 
     constructor(resourceName: string, context : $TSContext) {
         this.app = new App();
@@ -40,6 +40,10 @@ export class AmplifyS3ResourceStackTransform {
         this.cliInputs = this.cliInputsState.getCliInputPayload();
         this.context = context;
         this.resourceName = resourceName;
+    }
+
+    getCFN() : string|undefined{
+        return this.cfn;
     }
 
     async transform( commandType : CLISubCommandType ) {
