@@ -34,7 +34,7 @@ export function addApiWithoutSchema(cwd: string, opts: Partial<AddApiOptions> = 
   const options = _.assign(defaultOptions, opts);
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(), ['add', 'api'], { cwd, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Provide API name:')
       .sendLine(options.apiName)
@@ -70,7 +70,7 @@ export function addApiWithSchema(cwd: string, schemaFile: string, opts: Partial<
   const schemaPath = getSchemaPath(schemaFile);
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(), ['add', 'api'], { cwd, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Provide API name:')
       .sendLine(options.apiName)
@@ -103,7 +103,7 @@ export function addApiWithSchemaAndConflictDetection(cwd: string, schemaFile: st
   const schemaPath = getSchemaPath(schemaFile);
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(), ['add', 'api'], { cwd, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Provide API name:')
       .sendCarriageReturn()
@@ -150,7 +150,7 @@ export function updateApiSchema(cwd: string, projectName: string, schemaName: st
 export function updateApiWithMultiAuth(cwd: string, settings: any) {
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(settings.testingWithLatestCodebase), ['update', 'api'], { cwd, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Select from the options below')
       .sendCarriageReturn()
@@ -201,7 +201,7 @@ export function updateApiWithMultiAuth(cwd: string, settings: any) {
 export function apiUpdateToggleDataStore(cwd: string, settings: any) {
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(settings.testingWithLatestCodebase), ['update', 'api'], { cwd, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Select from the options below')
       .send(KEY_DOWN_ARROW)
@@ -221,7 +221,7 @@ export function apiUpdateToggleDataStore(cwd: string, settings: any) {
 export function updateAPIWithResolutionStrategy(cwd: string, settings: any) {
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(settings.testingWithLatestCodebase), ['update', 'api'], { cwd, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Select from the options below')
       .sendCarriageReturn()
@@ -261,7 +261,7 @@ export function addRestApi(cwd: string, settings: any) {
     } else {
       const isFirstRestApi = settings.isFirstRestApi ?? true;
       let chain = spawn(getCLIPath(), ['add', 'api'], { cwd, stripColors: true })
-        .wait('Please select from one of the below mentioned services')
+        .wait('Select from one of the below mentioned services')
         .send(KEY_DOWN_ARROW)
         .sendCarriageReturn(); // REST
 
@@ -383,7 +383,7 @@ export function addApi(projectDir: string, settings?: any) {
   let authTypesToSelectFrom = allAuthTypes.slice();
   return new Promise<void>((resolve, reject) => {
     let chain = spawn(getCLIPath(), ['add', 'api'], { cwd: projectDir, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Provide API name:')
       .sendCarriageReturn();
@@ -510,7 +510,7 @@ function setupOIDC(chain: any, settings?: any) {
 export function addApiWithCognitoUserPoolAuthTypeWhenAuthExists(projectDir: string) {
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(), ['add', 'api'], { cwd: projectDir, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendCarriageReturn()
       .wait('Provide API name:')
       .sendCarriageReturn()
@@ -539,7 +539,7 @@ export function addApiWithCognitoUserPoolAuthTypeWhenAuthExists(projectDir: stri
 export function addRestContainerApi(projectDir: string) {
   return new Promise<void>((resolve, reject) => {
     spawn(getCLIPath(), ['add', 'api'], { cwd: projectDir, stripColors: true })
-      .wait('Please select from one of the below mentioned services:')
+      .wait('Select from one of the below mentioned services:')
       .sendKeyDown()
       .sendCarriageReturn()
       .wait('Which service would you like to use')
