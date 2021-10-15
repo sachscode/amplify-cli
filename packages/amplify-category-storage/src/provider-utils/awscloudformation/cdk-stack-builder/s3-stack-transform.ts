@@ -74,10 +74,10 @@ export class AmplifyS3ResourceStackTransform {
     generateCfnInputParameters() {
         const userInput : S3UserInputs = this.cliInputsState.getUserInput();
 
-        const permissionCRUD = [ S3PermissionType.CREATE,
+        const permissionCRUD = [ S3PermissionType.CREATE_AND_UPDATE,
                                  S3PermissionType.READ,
                                  S3PermissionType.DELETE] ;
-        const permissionCreate = [S3PermissionType.CREATE];
+        const permissionCreate = [S3PermissionType.CREATE_AND_UPDATE];
         //DEFAULT Parameters
         const defaultS3PermissionsAuthenticatedPrivate = permissionCRUD;
         const defaultS3PermissionsAuthenticatedProtected = permissionCRUD;

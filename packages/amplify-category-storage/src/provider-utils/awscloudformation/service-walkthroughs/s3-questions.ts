@@ -13,7 +13,7 @@ import { checkIfAuthExists } from './s3-walkthrough';
 import path from 'path';
 
 export const permissionMap: S3PermissionMapType = {
-  'create/update': [S3PermissionType.CREATE],
+  'create/update': [S3PermissionType.CREATE_AND_UPDATE],
   read: [S3PermissionType.READ, S3PermissionType.LIST],
   delete: [S3PermissionType.DELETE],
 };

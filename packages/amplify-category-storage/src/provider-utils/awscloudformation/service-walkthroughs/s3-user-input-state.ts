@@ -255,7 +255,7 @@ export class S3InputState {
   public static getPermissionTypeFromCfnType(s3CFNPermissionType: S3CFNPermissionType): S3PermissionType {
     switch (s3CFNPermissionType) {
       case S3CFNPermissionType.CREATE:
-        return S3PermissionType.CREATE;
+        return S3PermissionType.CREATE_AND_UPDATE;
       case S3CFNPermissionType.READ:
         return S3PermissionType.READ;
       case S3CFNPermissionType.DELETE:
@@ -270,7 +270,7 @@ export class S3InputState {
   //S3CFNPermissionType
   public static getCfnTypeFromPermissionType(s3PermissionType: S3PermissionType): S3CFNPermissionType {
     switch (s3PermissionType) {
-      case S3PermissionType.CREATE:
+      case S3PermissionType.CREATE_AND_UPDATE:
         return S3CFNPermissionType.CREATE;
       case S3PermissionType.READ:
         return S3CFNPermissionType.READ;

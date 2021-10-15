@@ -21,7 +21,7 @@
             "type": "array",
             "items": {
                 "enum": [
-                    "CREATE",
+                    "CREATE_AND_UPDATE",
                     "DELETE",
                     "LIST",
                     "READ"
@@ -33,7 +33,7 @@
             "type": "array",
             "items": {
                 "enum": [
-                    "CREATE",
+                    "CREATE_AND_UPDATE",
                     "DELETE",
                     "LIST",
                     "READ"

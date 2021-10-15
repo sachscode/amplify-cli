@@ -75,7 +75,7 @@ describe('add s3 walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]); // What kind of permissions
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]); // What kind of permissions
 
     prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
 
@@ -104,8 +104,8 @@ describe('add s3 walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_AND_GUEST) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) // What kind of permissions (Auth)
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ,]); // What kind of permissions (Guest)
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]) // What kind of permissions (Auth)
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ,]); // What kind of permissions (Guest)
 
     prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
 
@@ -134,7 +134,7 @@ describe('add s3 walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) // What kind of permissions (Auth)
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]) // What kind of permissions (Auth)
   
 
     prompter.confirmContinue = jest
@@ -171,7 +171,7 @@ describe('add s3 walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) // What kind of permissions (Auth)
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]) // What kind of permissions (Auth)
       .mockResolvedValueOnce(S3TriggerFunctionType.EXISTING_FUNCTION)
       .mockResolvedValueOnce(S3MockDataBuilder.mockExistingFunctionName1 ); //Selected the First Existing function from the list.
 
@@ -252,7 +252,7 @@ describe('update s3 permission walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ]); /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ]); /** Update Auth Permission in CLI */
 
     prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
     stateManager.getMeta = jest.fn().mockReturnValue( S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthrough );
@@ -279,7 +279,7 @@ describe('update s3 permission walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_AND_GUEST) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ]) /** Update Auth Permission in CLI */
       .mockResolvedValueOnce([S3PermissionType.READ]); /** Update Guest Permission in CLI */
 
     prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
@@ -347,7 +347,7 @@ describe('update s3 permission walkthrough tests', () => {
       .fn()
       .mockResolvedValueOnce( UserPermissionTypeOptions.INDIVIDUAL_GROUPS ) // Restrict Access By
       .mockResolvedValueOnce( ['mockAdminGroup', 'mockGuestGroup'] ) //Select Groups
-      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //what kind of access do you want for the admin group
+      .mockResolvedValueOnce( [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //what kind of access do you want for the admin group
       .mockResolvedValueOnce( [S3PermissionType.READ] ) //what kind of access fo you want for the guest group
 
     prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
@@ -381,10 +381,10 @@ describe('update s3 permission walkthrough tests', () => {
       .fn()
       .mockResolvedValueOnce( UserPermissionTypeOptions.BOTH ) // Restrict Access By
       .mockResolvedValueOnce( S3AccessType.AUTH_AND_GUEST ) // Restrict Access By
-      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //select Auth permissions
-      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ] ) //select Guest permissions
+      .mockResolvedValueOnce( [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //select Auth permissions
+      .mockResolvedValueOnce( [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ] ) //select Guest permissions
       .mockResolvedValueOnce( ['mockAdminGroup', 'mockGuestGroup'] ) //Select Groups
-      .mockResolvedValueOnce( [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //select admin group permissions
+      .mockResolvedValueOnce( [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE] ) //select admin group permissions
       .mockResolvedValueOnce( [S3PermissionType.READ] ) //select guest group permissions
 
     prompter.confirmContinue = jest.fn().mockReturnValueOnce(false); // Do you want to add a Lambda Trigger ?
@@ -458,7 +458,7 @@ describe('update s3 lambda-trigger walkthrough tests', () => {
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
       .mockResolvedValueOnce([
-        S3PermissionType.CREATE,
+        S3PermissionType.CREATE_AND_UPDATE,
         S3PermissionType.READ,
         S3PermissionType.DELETE,
       ]); /** Update Auth Permission in CLI */
@@ -494,7 +494,7 @@ describe('update s3 lambda-trigger walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
       .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.REMOVE); /** Select one of Update/Remove Skip*/
 
     stateManager.getMeta = jest.fn().mockReturnValue(S3MockDataBuilder.mockAmplifyMetaForUpdateWalkthroughLambda);
@@ -532,7 +532,7 @@ describe('update s3 lambda-trigger walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
       .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.UPDATE) /** Select one of Update/Remove Skip*/
       .mockResolvedValueOnce(S3TriggerFunctionType.EXISTING_FUNCTION)
       .mockResolvedValueOnce(S3MockDataBuilder.mockExistingFunctionName1);
@@ -573,7 +573,7 @@ describe('update s3 lambda-trigger walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
       .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.UPDATE) /** Select one of Update/Remove Skip*/
       .mockResolvedValueOnce(S3TriggerFunctionType.NEW_FUNCTION);
 
@@ -616,7 +616,7 @@ describe('update s3 lambda-trigger walkthrough tests', () => {
     prompter.pick = jest
       .fn()
       .mockResolvedValueOnce(S3AccessType.AUTH_ONLY) // who should have access
-      .mockResolvedValueOnce([S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
+      .mockResolvedValueOnce([S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE]) /** Update Auth Permission in CLI */
       .mockResolvedValueOnce(S3CLITriggerUpdateMenuOptions.UPDATE) /** Select one of Update/Remove Skip*/
       .mockResolvedValueOnce(S3TriggerFunctionType.NEW_FUNCTION);
 
@@ -704,11 +704,11 @@ class S3MockDataBuilder {
     }
   }
   mockGroupAccess = {
-    mockAdminGroup: [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE, S3PermissionType.LIST],
+    mockAdminGroup: [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE, S3PermissionType.LIST],
     mockGuestGroup: [S3PermissionType.READ, S3PermissionType.LIST],
   };
-  defaultAuthPerms = [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.DELETE, S3PermissionType.LIST];
-  defaultGuestPerms = [S3PermissionType.CREATE, S3PermissionType.READ, S3PermissionType.LIST];
+  defaultAuthPerms = [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE, S3PermissionType.LIST];
+  defaultGuestPerms = [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.LIST];
 
   simpleAuth: S3UserInputs = {
     resourceName: S3MockDataBuilder.mockResourceName,
