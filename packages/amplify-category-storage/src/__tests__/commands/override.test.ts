@@ -1,4 +1,4 @@
-import { $TSContext, $TSObject, stateManager, generateOverrideSkeleton, pathManager } from 'amplify-cli-core';
+import { $TSContext, $TSObject, stateManager, generateOverrideSkeleton, pathManager, AmplifySupportedService } from 'amplify-cli-core';
 import { run } from '../../commands/storage/override';
 import { printer, prompter } from 'amplify-prompts';
 import path from 'path';
@@ -10,6 +10,8 @@ jest.mock('amplify-prompts');
 jest.mock('path');
 jest.mock('../../provider-utils/awscloudformation/service-walkthroughs/dynamoDB-input-state');
 jest.mock('../../provider-utils/awscloudformation/cdk-stack-builder/ddb-stack-transform');
+jest.mock('../../provider-utils/awscloudformation/service-walkthroughs/s3-user-input-state');
+jest.mock('../../provider-utils/awscloudformation/cdk-stack-builder/s3-stack-transform');
 
 const generateOverrideSkeleton_mock = generateOverrideSkeleton as jest.MockedFunction<typeof generateOverrideSkeleton>;
 generateOverrideSkeleton_mock.mockImplementation = jest.fn().mockImplementation(async () => {
@@ -31,11 +33,11 @@ describe('override ddb command tests', () => {
     mockAmplifyMeta = {
       storage: {
         dynamo73399689: {
-          service: 'DynamoDB',
+          service: AmplifySupportedService.DYNAMODB,
           providerPlugin: 'awscloudformation',
         },
         dynamoefb50875: {
-          service: 'DynamoDB',
+          service: AmplifySupportedService.DYNAMODB,
           providerPlugin: 'awscloudformation',
         },
       },
@@ -104,11 +106,11 @@ describe('override s3 command tests', () => {
     } as unknown as $TSContext;
   });
 
-  it('override s3 when one ddb storage resource present', async () => {
+  it('override s3 when one s3 storage resource present', async () => {
     mockAmplifyMeta = {
       storage: {
         s351182c15: {
-          service: 's3',
+          service: AmplifySupportedService.S3,
           providerPlugin: 'awscloudformation',
         },
       },

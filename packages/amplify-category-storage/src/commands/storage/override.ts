@@ -2,20 +2,20 @@
     entry code for amplify override root
 */
 
-import { generateOverrideSkeleton, $TSContext, stateManager, pathManager } from 'amplify-cli-core';
+import { generateOverrideSkeleton, $TSContext, stateManager, pathManager, CLISubCommandType } from 'amplify-cli-core';
 import { printer, prompter } from 'amplify-prompts';
 import { DynamoDBInputState } from '../../provider-utils/awscloudformation/service-walkthroughs/dynamoDB-input-state';
 import { DDBStackTransform } from '../../provider-utils/awscloudformation/cdk-stack-builder/ddb-stack-transform';
-import { migrateCategory as migrateS3Walkthrough } from '../../provider-utils/awscloudformation/service-walkthroughs/s3-walkthrough';
 import * as path from 'path';
 import { categoryName } from '../../constants';
 import { AmplifySupportedService } from 'amplify-cli-core';
+import { S3InputState } from '../../provider-utils/awscloudformation/service-walkthroughs/s3-user-input-state';
+import { AmplifyS3ResourceStackTransform } from '../../provider-utils/awscloudformation/cdk-stack-builder/s3-stack-transform';
 
 export const name = 'override';
 
 export const run = async (context: $TSContext) => {
   const amplifyMeta = stateManager.getMeta();
-
   const storageResources: string[] = [];
 
   if (amplifyMeta[categoryName]) {
@@ -61,13 +61,18 @@ export const run = async (context: $TSContext) => {
       }
     }
   } else if (amplifyMeta[categoryName][selectedResourceName].service === AmplifySupportedService.S3 ) {
-    // S3 migration logic goes in here
-    const result : string|undefined = await migrateS3Walkthrough( context, selectedResourceName );
-    if ( !result ){
-      //migration was rejected by user
-      return;
+      // S3 migration logic goes in here
+      const resourceInputState = new S3InputState(selectedResourceName, undefined);
+      if (!resourceInputState.cliInputFileExists()) {
+        if (await prompter.yesOrNo('File migration required to continue. Do you want to continue?', true)) {
+          resourceInputState.migrate();
+          const stackGenerator = new AmplifyS3ResourceStackTransform(selectedResourceName, context);
+          stackGenerator.transform( CLISubCommandType.MIGRATE );
+        } else {
+          return;
+        }
+      }
     }
-  }
 
   await generateOverrideSkeleton(context, srcPath, destPath);
 };
