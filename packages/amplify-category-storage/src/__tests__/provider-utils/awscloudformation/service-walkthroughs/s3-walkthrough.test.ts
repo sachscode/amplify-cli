@@ -272,7 +272,7 @@ describe('update s3 permission walkthrough tests', () => {
     //**Set Auth permissions in Expected Output (without Delete permissions)
     const expectedCLIInputsJSON: S3UserInputs = mockDataBuilder
                                                 .removeAuthPermission(S3PermissionType.DELETE)
-                                                .addGuestAccess([S3PermissionType.READ, S3PermissionType.LIST])
+                                                .addGuestAccess([S3PermissionType.READ])
                                                 .getCLIInputs();
 
     //Update CLI walkthrough (update auth permission)
@@ -704,11 +704,11 @@ class S3MockDataBuilder {
     }
   }
   mockGroupAccess = {
-    mockAdminGroup: [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE, S3PermissionType.LIST],
-    mockGuestGroup: [S3PermissionType.READ, S3PermissionType.LIST],
+    mockAdminGroup: [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE],
+    mockGuestGroup: [S3PermissionType.READ],
   };
-  defaultAuthPerms = [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE, S3PermissionType.LIST];
-  defaultGuestPerms = [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.LIST];
+  defaultAuthPerms = [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ, S3PermissionType.DELETE];
+  defaultGuestPerms = [S3PermissionType.CREATE_AND_UPDATE, S3PermissionType.READ];
 
   simpleAuth: S3UserInputs = {
     resourceName: S3MockDataBuilder.mockResourceName,

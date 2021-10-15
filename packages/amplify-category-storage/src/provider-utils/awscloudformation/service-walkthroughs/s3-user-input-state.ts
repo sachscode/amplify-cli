@@ -257,27 +257,24 @@ export class S3InputState {
       case S3CFNPermissionType.CREATE:
         return S3PermissionType.CREATE_AND_UPDATE;
       case S3CFNPermissionType.READ:
+      case S3CFNPermissionType.LIST:
         return S3PermissionType.READ;
       case S3CFNPermissionType.DELETE:
         return S3PermissionType.DELETE;
-      case S3CFNPermissionType.LIST:
-        return S3PermissionType.LIST;
       default:
         throw new Error(`Unknown CFN Type: ${s3CFNPermissionType}`);
     }
   }
 
   //S3CFNPermissionType
-  public static getCfnTypeFromPermissionType(s3PermissionType: S3PermissionType): S3CFNPermissionType {
+  public static getCfnTypesFromPermissionType(s3PermissionType: S3PermissionType): Array<S3CFNPermissionType> {
     switch (s3PermissionType) {
       case S3PermissionType.CREATE_AND_UPDATE:
-        return S3CFNPermissionType.CREATE;
+        return [S3CFNPermissionType.CREATE];
       case S3PermissionType.READ:
-        return S3CFNPermissionType.READ;
+        return [S3CFNPermissionType.READ, S3CFNPermissionType.LIST];
       case S3PermissionType.DELETE:
-        return S3CFNPermissionType.DELETE;
-      case S3PermissionType.LIST:
-        return S3CFNPermissionType.LIST;
+        return [S3CFNPermissionType.DELETE];
       default:
         throw new Error(`Unknown Permission Type: ${s3PermissionType}`);
     }
@@ -293,7 +290,11 @@ export class S3InputState {
 
   public static getCfnPermissionsFromInputPermissions(selectedPermissions: S3PermissionType[] | undefined) {
     if (selectedPermissions) {
-      return selectedPermissions.map(S3InputState.getCfnTypeFromPermissionType);
+      let selectedCfnPermissions :S3CFNPermissionType[] = []; //S3CFNPermissionType
+      for( const selectedPermission of selectedPermissions ){
+        selectedCfnPermissions = selectedCfnPermissions.concat( S3InputState.getCfnTypesFromPermissionType(selectedPermission) )
+      }
+      return selectedCfnPermissions;
     } else {
       return []
     }

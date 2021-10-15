@@ -14,7 +14,7 @@ import path from 'path';
 
 export const permissionMap: S3PermissionMapType = {
   'create/update': [S3PermissionType.CREATE_AND_UPDATE],
-  read: [S3PermissionType.READ, S3PermissionType.LIST],
+  read: [S3PermissionType.READ],
   delete: [S3PermissionType.DELETE],
 };
 
@@ -127,13 +127,11 @@ export async function askCRUDQuestion(
 ): Promise<Array<S3PermissionType>> {
   const roleDefaultValues = getRoleAccessDefaultValues(role, groupName, defaultValues);
   const userRole = role === S3UserAccessRole.GROUP ? groupName : role;
-
   const message = `What kind of access do you want for ${userRole} users?`;
   const choices = possibleCRUDOperations;
   const initialIndexes = getIndexArrayByValue(possibleCRUDOperations, roleDefaultValues);
   const selectedPermissions = await prompter.pick<'many', string>(message, choices, { returnSize: 'many', initial: initialIndexes });
-  const results: S3PermissionType[] = denormalizePermissions(selectedPermissions as Array<S3PermissionType>);
-  return results;
+  return selectedPermissions as Array<S3PermissionType>;
 }
 
 export async function askUserPoolGroupSelectionQuestion(
@@ -288,14 +286,6 @@ export function normalizePermissionsMapValue(permissionValue: Array<S3Permission
   } else {
     return permissionValue[0];
   }
-}
-
-//If READ permission then implicitly provide LIST permission
-export function denormalizePermissions(permissionValue: Array<S3PermissionType>) {
-  if (permissionValue.includes(S3PermissionType.READ)) {
-    permissionValue.push(S3PermissionType.LIST);
-  }
-  return permissionValue;
 }
 
 //Helper functions for prompter to get default-index array from default values.

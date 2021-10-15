@@ -32,7 +32,6 @@ export enum S3PermissionType {
     CREATE_AND_UPDATE = 'CREATE_AND_UPDATE',
     READ = 'READ',
     DELETE = 'DELETE',
-    LIST = 'LIST'
 }
 
 

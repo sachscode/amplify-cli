@@ -17,7 +17,7 @@ import { AmplifyBuildParamsPermissions, AmplifyCfnParamType, AmplifyS3ResourceIn
 export async function transformS3ResourceStack(context: $TSContext, resource: IAmplifyResource): Promise<void> {
       if (canResourceBeTransformed(resource.resourceName)) {
         const stackGenerator = new  AmplifyS3ResourceStackTransform(resource.resourceName, context);
-        stackGenerator.transform( CLISubCommandType.OVERRIDE );
+        await stackGenerator.transform( CLISubCommandType.OVERRIDE );
       }
 }
 
@@ -47,22 +47,16 @@ export class AmplifyS3ResourceStackTransform {
     }
 
     async transform( commandType : CLISubCommandType ) {
-        const validationResult =   await this.cliInputsState.isCLIInputsValid();
-        //Only generate stack if truthsy
-        if ( validationResult ) {
-            this.generateCfnInputParameters();
+        this.generateCfnInputParameters();
 
-            // Generate cloudformation stack from cli-inputs.json
-            await this.generateStack(this.context);
+        // Generate cloudformation stack from cli-inputs.json
+        await this.generateStack(this.context);
 
-            // Modify cloudformation files based on overrides
-            await this.applyOverrides()
+        // Modify cloudformation files based on overrides
+        await this.applyOverrides()
 
-            // Save generated cloudformation.json and parameters.json files
-            this.saveBuildFiles( commandType );
-        } else {
-            throw new Error("cli-inputs.json has been altered or doesn't match input-schema for the resource");
-        }
+        // Save generated cloudformation.json and parameters.json files
+        this.saveBuildFiles( commandType );
     }
 
     /**
@@ -88,7 +82,6 @@ export class AmplifyS3ResourceStackTransform {
         const defaultS3PermissionsGuestPublic = permissionCRUD;
         const defaultS3PermissionsGuestUploads = permissionCreate;
 
-
         this.cfnInputParams = {
             bucketName : userInput.bucketName,
             selectedGuestPermissions: S3InputState.getCfnPermissionsFromInputPermissions(userInput.guestAccess),
@@ -110,8 +103,8 @@ export class AmplifyS3ResourceStackTransform {
         this.cfnInputParams.s3UploadsPolicy = `Uploads_policy_${userInput.policyUUID}`;
         this.cfnInputParams.authPolicyName = `s3_amplify_${userInput.policyUUID}`;
         this.cfnInputParams.unauthPolicyName = `s3_amplify_${userInput.policyUUID}`;
-        this.cfnInputParams.AuthenticatedAllowList = this._getAuthGuestListPermission( S3PermissionType.LIST, userInput.authAccess)
-        this.cfnInputParams.GuestAllowList = this._getAuthGuestListPermission( S3PermissionType.LIST, userInput.guestAccess)
+        this.cfnInputParams.AuthenticatedAllowList = this._getAuthGuestListPermission( S3PermissionType.READ, userInput.authAccess)
+        this.cfnInputParams.GuestAllowList = this._getAuthGuestListPermission( S3PermissionType.READ, userInput.guestAccess)
         this.cfnInputParams.s3PermissionsAuthenticatedPrivate = this._getPublicPrivatePermissions(defaultS3PermissionsAuthenticatedPrivate, userInput.authAccess);
         this.cfnInputParams.s3PermissionsAuthenticatedProtected = this._getPublicPrivatePermissions(defaultS3PermissionsAuthenticatedProtected, userInput.authAccess);
         this.cfnInputParams.s3PermissionsAuthenticatedPublic = this._getPublicPrivatePermissions(defaultS3PermissionsAuthenticatedPublic, userInput.authAccess);

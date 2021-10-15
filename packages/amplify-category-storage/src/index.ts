@@ -67,7 +67,7 @@ async function transformCategoryStack(context: $TSContext, resource: IAmplifyRes
   if (resource.service === AmplifySupportedService.DYNAMODB ) {
     if (canResourceBeTransformed(resource.resourceName)) {
       const stackGenerator = new DDBStackTransform(resource.resourceName);
-      stackGenerator.transform();
+      await stackGenerator.transform();
     }
   } else if (resource.service === AmplifySupportedService.S3) {
     await transformS3ResourceStack(context, resource);

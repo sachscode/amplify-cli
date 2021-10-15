@@ -55,7 +55,7 @@ export const run = async (context: $TSContext) => {
       if (await prompter.yesOrNo('File migration required to continue. Do you want to continue?', true)) {
         resourceInputState.migrate();
         const stackGenerator = new DDBStackTransform(selectedResourceName);
-        stackGenerator.transform();
+        await stackGenerator.transform();
       } else {
         return;
       }

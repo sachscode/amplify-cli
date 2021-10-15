@@ -8,7 +8,7 @@ import { S3UserInputs, defaultS3UserInputs, GroupAccessType, S3PermissionType } 
 import { $TSAny, $TSContext, $TSObject } from 'amplify-cli-core';
 import { HttpMethods } from '@aws-cdk/aws-s3';
 import * as s3AuthAPI from '../service-walkthroughs/s3-auth-api';
-import { S3CFNDependsOn, S3InputState } from '../service-walkthroughs/s3-user-input-state';
+import { S3CFNDependsOn, S3CFNPermissionType, S3InputState } from '../service-walkthroughs/s3-user-input-state';
 import { stateManager, pathManager } from 'amplify-cli-core';
 
 export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implements AmplifyS3ResourceTemplate {
@@ -767,7 +767,7 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
     _buildCDKGroupPolicyStatements( groupPerms : S3PermissionType[]) :iamCdk.PolicyStatement[]{
            const policyStatementList : Array<iamCdk.PolicyStatement> = [];
            const bucketArn = cdk.Fn.join('', [ "arn:aws:s3:::" , cdk.Fn.ref("S3Bucket")]).toString();
-           const permissions = groupPerms.map( groupPerm => S3InputState.getCfnTypeFromPermissionType(groupPerm) )
+           const permissions : S3CFNPermissionType[] = S3InputState.getCfnPermissionsFromInputPermissions(groupPerms);
            policyStatementList.push(
                 new iamCdk.PolicyStatement({
                     resources: [ `${bucketArn}/*` ],
@@ -775,11 +775,11 @@ export class AmplifyS3ResourceCfnStack extends AmplifyResourceCfnStack implement
                     effect: iamCdk.Effect.ALLOW,
                 })
            );
-           if ( groupPerms.includes( S3PermissionType.LIST )){
+           if ( groupPerms.includes(S3PermissionType.READ)){
                 policyStatementList.push(
                     new iamCdk.PolicyStatement({
                         resources: [ `${bucketArn}` ],
-                        actions: [S3InputState.getCfnTypeFromPermissionType(S3PermissionType.LIST)],
+                        actions: [S3CFNPermissionType.LIST],
                         effect: iamCdk.Effect.ALLOW,
                     })
                 )

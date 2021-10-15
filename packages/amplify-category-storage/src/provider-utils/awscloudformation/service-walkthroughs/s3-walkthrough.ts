@@ -125,7 +125,7 @@ export async function  updateWalkthrough(context: any){
           ) {
             cliInputsState.migrate();
             const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context );
-            stackGenerator.transform(CLISubCommandType.UPDATE); //generates cloudformation
+            await stackGenerator.transform(CLISubCommandType.UPDATE); //generates cloudformation
           } else {
             return;
           }
@@ -158,7 +158,7 @@ export async function  updateWalkthrough(context: any){
       cliInputsState.saveCliInputPayload(cliInputs);
       //Generate Cloudformation
       const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context);
-      stackGenerator.transform(CLISubCommandType.UPDATE);
+      await stackGenerator.transform(CLISubCommandType.UPDATE);
       return cliInputs.resourceName;
   }
 };
@@ -176,7 +176,7 @@ export async function migrateCategory(context: any, resourceName: any): Promise<
   if (!cliInputsState.cliInputFileExists()){
       cliInputsState.migrate();
       const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context);
-      stackGenerator.transform( CLISubCommandType.MIGRATE );
+      await stackGenerator.transform( CLISubCommandType.MIGRATE );
       return stackGenerator.getCFN();
   } else {
     return undefined;
