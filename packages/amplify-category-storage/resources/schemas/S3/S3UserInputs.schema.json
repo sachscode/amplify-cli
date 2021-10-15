@@ -23,7 +23,6 @@
                 "enum": [
                     "CREATE_AND_UPDATE",
                     "DELETE",
-                    "LIST",
                     "READ"
                 ],
                 "type": "string"
@@ -35,7 +34,6 @@
                 "enum": [
                     "CREATE_AND_UPDATE",
                     "DELETE",
-                    "LIST",
                     "READ"
                 ],
                 "type": "string"
