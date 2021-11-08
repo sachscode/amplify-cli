@@ -12,7 +12,8 @@ import {
   updateDDBWithTrigger,
   updateS3AddTrigger,
   checkIfBucketExists,
-  addS3Storage
+  addS3Storage,
+  addAuthWithDefault
 } from 'amplify-e2e-core';
 import { initJSProjectWithProfile } from '../../migration-helpers';
 
@@ -61,8 +62,7 @@ describe('amplify add/update storage(DDB)', () => {
     const table2Configs = await getDDBTable(table2Name, table2Region);
     expect(table2Configs.Table.TableArn).toEqual(table2Arn);
   });
-});
-
+}); 
 
 function getPluginServiceMetaFromAmplifyMeta( amplifyMeta : $TSObject, pluginServiceName : string ):$TSObject {
   for ( const resourceName of Object.keys(amplifyMeta.storage)){
@@ -96,6 +96,7 @@ describe('amplify add/update storage(S3)', () => {
   it('init a project and add s3 bucket & update with new trigger', async () => {
     // init, add storage and push with local cli
     await initJSProjectWithProfile(projRoot, {});
+    await addAuthWithDefault(projRoot, {});
     await addS3Storage(projRoot);
     await amplifyPushAuth(projRoot);
     // update and push with new codebase

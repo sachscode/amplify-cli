@@ -597,35 +597,25 @@ export function addS3StorageWithIdpAuth(projectDir: string): Promise<void> {
 export function addS3Storage(projectDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
     let chain = spawn(getCLIPath(), ['add', 'storage'], { cwd: projectDir, stripColors: true });
-    chain.wait('Select from one of the below mentioned services:').sendCarriageReturn(); //'Content (Images, audio, video, etc.)'
-    chain
-      .wait('Provide a friendly name for your resource that will be used to label this category in the project:')
-      .sendCarriageReturn()
-      .wait('Provide bucket name:')
-      .sendCarriageReturn();
-
-    chain.wait('Who should have access:')
+    chain.wait('Select from one of the below mentioned services:')
+    .sendCarriageReturn() //Content (Images, audio, video, etc.)
+    .wait('Provide a friendly name for your resource that will be used to label this category in the project:')
+    .sendCarriageReturn() //Default resource name
+    .wait('Provide bucket name:')
+    .sendCarriageReturn() //Default bucket name
+    .wait('Who should have access:')
     .sendKeyDown()
-    .send(' ')
+    .delay(300)
+    .send(' ') //Auth and Guest
     .sendCarriageReturn()
-
-    chain.wait('What kind of access do you want for Authenticated users?')
-    .send(' ') //'create/update'
-    .sendKeyDown()
-    .send(' ') //'read'
-    .sendKeyDown()
-    .send(' ') //'delete'
+    .wait('What kind of access do you want for Authenticated users?')
+    .sendCtrlA()
     .sendCarriageReturn()
-
-    chain.wait('What kind of access do you want for Guest users?')
-    .send(' ') //'create/update'
-    .sendKeyDown()
-    .send(' ') //'read'
-    .sendKeyDown()
-    .send(' ') //'delete'
+    .wait('What kind of access do you want for Guest users?')
+    .sendCtrlA()
     .sendCarriageReturn()
-
-    chain.wait('Do you want to add a Lambda Trigger for your S3 Bucket?').sendConfirmNo();
+    .wait('Do you want to add a Lambda Trigger for your S3 Bucket?')
+    .sendConfirmNo();
 
     chain.run((err: Error) => {
       if (!err) {
