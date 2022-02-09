@@ -5,103 +5,8 @@ import sequential from 'promise-sequential';
 import { notifyFieldAuthSecurityChange, notifySecurityEnhancement } from '../extensions/amplify-helpers/auth-notifications';
 import { getProviderPlugins } from '../extensions/amplify-helpers/get-provider-plugins';
 import { showTroubleshootingURL } from './help';
-import { CloudFormationClient, DescribeStackDriftDetectionStatusCommand,
-         DetectStackDriftCommand, DetectStackDriftCommandOutput,
-         DescribeStackResourceDriftsCommand, DescribeStackResourceDriftsCommandInput } from "@aws-sdk/client-cloudformation";
-import { DescribeStackResourceDriftsOutput } from 'aws-sdk/clients/cloudformation';
-
+import { getCloudFormationStackDrift, viewCloudFormationDriftResults } from './cfndrift';
 const spinner = ora('');
-
-function wait(ms){
-  return new Promise((res) => setTimeout(res, ms));
-}
-async function callWithRetry( asyncfn, args, resultChk, maxRetries = 7){
-  for( let tryNum = 0 ; tryNum < maxRetries ; tryNum++ ) {
-      console.log("SACPCDEBUG: Calling getDrift with ", args);
-      const results = await asyncfn(args);
-      if ( resultChk(results) ){
-        return results;
-      }
-      await wait(2 ** tryNum * 10);
-  }
-}
-
-function checkDriftCheckDone(result){
-  if (result.DetectionStatus === "DETECTION_IN_PROGRESS"){
-    return false;
-  } else {
-    return true;
-  }
-}
-
-function getCFNMeta(): any {
-  const amplifyMeta = stateManager.getMeta();
-  return amplifyMeta.providers.awscloudformation;
-}
-
-async function detectCFNStackDrift(cfnMeta: any , client: CloudFormationClient): Promise<DetectStackDriftCommandOutput>{
-  const input = { StackName: cfnMeta.StackName  };
-  const command = new DetectStackDriftCommand(input);
-  const response = await client.send(command);
-  return response;
-}
-
-async function getAllResourceStackDrift( cfnMeta, client ){
-  const maxResults = 50;
-  let responses: any[] = [];
-  for await (let response of getResourceStackDriftGenerator( client, cfnMeta.StackName, maxResults )) {
-    if ( response ){
-      responses.push(response);
-    }
-  }
-  return responses;
-}
-async function displayStyledStackDiff(stackDiffs){
-    for ( const stack of stackDiffs ){
-      for ( const stackDrift of stack.StackResourceDrifts ) {
-        console.log(`LogicalID : ${stackDrift.LogicalResourceId}  PhysicalID : ${stackDrift.PhysicalResourceId} ResourceType : ${stackDrift.ResourceType}`);
-        console.log(JSON.stringify(stackDrift.PropertyDifferences, null, 2));
-      }
-    }
-}
-
-async function getCloudFormationStackDrift() {
-  const cfnMeta = getCFNMeta();
-  const client = new CloudFormationClient({region: cfnMeta.Region});
-  const driftDetectionOuput = await detectCFNStackDrift(cfnMeta, client);
-  const command = new DescribeStackDriftDetectionStatusCommand( {StackDriftDetectionId : driftDetectionOuput.StackDriftDetectionId} );
-  spinner.start(`Calling Drift check with exponential backoff`);
-  let response;
-  do  {
-    response = await client.send(command);
-  } while(response.DetectionStatus === "DETECTION_IN_PROGRESS")
-
-  if(response.StackDriftStatus == "DRIFTED" ){
-    const stackDiffs = await getAllResourceStackDrift( cfnMeta, client )
-    spinner.warn(`Warning ${response.DriftedStackResourceCount} resources have ${response.StackDriftStatus}`);
-    await displayStyledStackDiff(stackDiffs);
-  } else {
-    spinner.succeed(`Cloud resources are pristine ${response.StackDriftStatus}`);
-  }
-  return response;
-}
-
-async function* getResourceStackDriftGenerator( client, stackName, maxResults ){
-    let params : DescribeStackResourceDriftsCommandInput = {
-      StackName: stackName,
-      MaxResults: maxResults,
-      StackResourceDriftStatusFilters: ["MODIFIED", "DELETED"]
-    };
-
-    let response : DescribeStackResourceDriftsOutput|undefined = undefined;
-    do {
-      const command = new DescribeStackResourceDriftsCommand( params );
-      response = await client.send(command);
-      yield response;
-      params.NextToken = (response)?response.NextToken:undefined;
-    } while( response?.NextToken );
-}
-
 
 
 // The following code pulls the latest backend to #current-cloud-backend
@@ -151,6 +56,7 @@ async function pushHooks(context: $TSContext) {
 
 export const run = async (context: $TSContext) => {
   const response = await getCloudFormationStackDrift()
+  await viewCloudFormationDriftResults(context, response)
   try {
     context.amplify.constructExeInfo(context);
     if (context.exeInfo.localEnvInfo.noUpdateBackend) {
