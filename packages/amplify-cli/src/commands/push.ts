@@ -5,7 +5,7 @@ import sequential from 'promise-sequential';
 import { notifyFieldAuthSecurityChange, notifySecurityEnhancement } from '../extensions/amplify-helpers/auth-notifications';
 import { getProviderPlugins } from '../extensions/amplify-helpers/get-provider-plugins';
 import { showTroubleshootingURL } from './help';
-import { getCloudFormationStackDrift, viewCloudFormationDriftResults } from './cfndrift';
+import { getCloudFormationStackDrift, viewCloudFormationDriftResults, viewQuestionDriftDetection } from './cfndrift';
 const spinner = ora('');
 
 
@@ -55,8 +55,6 @@ async function pushHooks(context: $TSContext) {
 }
 
 export const run = async (context: $TSContext) => {
-  const response = await getCloudFormationStackDrift()
-  await viewCloudFormationDriftResults(context, response)
   try {
     context.amplify.constructExeInfo(context);
     if (context.exeInfo.localEnvInfo.noUpdateBackend) {
@@ -73,6 +71,12 @@ export const run = async (context: $TSContext) => {
     printer.error(`An error occurred during the push operation: ${message}`);
     await context.usageData.emitError(e);
     showTroubleshootingURL();
+
+    const checkStackDrift =  await viewQuestionDriftDetection(context);
+    if (checkStackDrift){
+      const response = await getCloudFormationStackDrift()
+      await viewCloudFormationDriftResults(context, response)
+    }
     exitOnNextTick(1);
   }
 };
