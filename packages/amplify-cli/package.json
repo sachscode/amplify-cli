@@ -41,6 +41,7 @@
     "@aws-amplify/graphql-auth-transformer": "0.7.7",
     "@aws-cdk/cloudformation-diff": "~1.124.0",
     "amplify-app": "4.2.22",
+    "@aws-sdk/client-cloudformation": "^3.49.0",
     "amplify-category-analytics": "3.2.21",
     "amplify-category-function": "3.5.2",
     "amplify-category-geo": "2.4.1",
