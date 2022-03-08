@@ -14,5 +14,5 @@ export const run = async context => {
  */
 export const showTroubleshootingURL = ()=>{
   printer.warn(' Review the Amplify CLI troubleshooting guide for potential next steps:');
-  printer.info(chalk`cyan.underline ${(AMPLIFY_SUPPORT_DOCS.CLI_PROJECT_TROUBLESHOOTING.url)}`)
+  printer.info(`${chalk.cyan.underline(AMPLIFY_SUPPORT_DOCS.CLI_PROJECT_TROUBLESHOOTING.url)}`)
 }

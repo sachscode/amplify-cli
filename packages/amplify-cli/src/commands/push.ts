@@ -5,7 +5,7 @@ import sequential from 'promise-sequential';
 import { notifyFieldAuthSecurityChange, notifySecurityEnhancement } from '../extensions/amplify-helpers/auth-notifications';
 import { getProviderPlugins } from '../extensions/amplify-helpers/get-provider-plugins';
 import { showTroubleshootingURL } from './help';
-import { getCloudFormationStackDrift, viewCloudFormationDriftResults, viewQuestionDriftDetection } from './cfndrift';
+import { analyzeDriftResult, getCloudFormationStackDrift, viewAnalyzeDriftResults, viewCloudFormationDriftResults, viewQuestionDriftDetection } from './cfndrift';
 const spinner = ora('');
 
 
@@ -54,7 +54,23 @@ async function pushHooks(context: $TSContext) {
   await sequential(pushHooksTasks);
 }
 
+/**
+ * Ask question to confirm drift-check operation
+ * Query all the cloudformation stacks for the current application
+ * Display all the resources which have been manually updated in the cloud
+ * @param context
+ */
+async function showDriftCheckFlow( context){
+  const checkStackDrift =  await viewQuestionDriftDetection(context);
+  if (checkStackDrift){
+    const response = await getCloudFormationStackDrift()
+    await viewCloudFormationDriftResults(context, response)
+    await viewAnalyzeDriftResults(context, response)
+  }
+}
+
 export const run = async (context: $TSContext) => {
+  await showDriftCheckFlow(context);
   try {
     context.amplify.constructExeInfo(context);
     if (context.exeInfo.localEnvInfo.noUpdateBackend) {
@@ -71,12 +87,7 @@ export const run = async (context: $TSContext) => {
     printer.error(`An error occurred during the push operation: ${message}`);
     await context.usageData.emitError(e);
     showTroubleshootingURL();
-
-    const checkStackDrift =  await viewQuestionDriftDetection(context);
-    if (checkStackDrift){
-      const response = await getCloudFormationStackDrift()
-      await viewCloudFormationDriftResults(context, response)
-    }
+    // await showDriftCheckFlow(context);
     exitOnNextTick(1);
   }
 };

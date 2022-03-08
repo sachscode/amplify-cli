@@ -11,7 +11,6 @@ import * as emoji from "node-emoji";
 import chalk from "chalk";
 import terminalLink from 'terminal-link';
 import { prompter, printer } from "amplify-prompts";
-
 const spinner = ora('');
 /**
  * Async function to query all stack ids in the Amplify project and print their differences.
@@ -44,8 +43,43 @@ export async function getCloudFormationStackDrift() :  Promise<DescribeStackDrif
         }
     }
 
-    const result = stackDiffList.flat(2);
-    return result;
+    const driftResults = stackDiffList.flat(2);
+    return driftResults;
+}
+
+export async function viewAnalyzeDriftResults(context:$TSContext, driftResults){
+    if (driftResults?.length <= 0 ){
+        return;
+    }
+    const showMitigation =  await viewQuestionDriftDetectionAnalysis(context);
+    if ( showMitigation ){
+        analyzeDriftResult(driftResults)
+    }
+}
+
+export async function analyzeDriftResult(driftResults){
+    printer.warn("The following changes will be applied to the application resources in the cloud...");
+    for ( const result of driftResults ){
+        console.log(`Fix Resource:: ${result.ResourceType} physical id :: ${chalk.cyan(result.PhysicalResourceId)}`);
+        let propCount = 1;
+        if ( result.StackResourceDriftStatus == "DELETED"){
+            console.log(`Create ${result.ResourceType} with PhysicalID ${result.PhysicalResourceId}`)
+        } else {
+            for( const propDiff of result.PropertyDifferences ) {
+                let remedy = (verb: string, config : any)=>
+                `${propCount++}. ${verb} ${(propDiff.PropertyPath)?`Property:: ${chalk.cyan(propDiff.PropertyPath)}`:""} with config : \n${chalk.cyan(JSON.stringify(config, null, 2))}`;
+                if ( propDiff.DifferenceType == "REMOVE" ){
+                    const config = JSON.parse(propDiff.ExpectedValue)
+                    //handle creation
+                    console.log( remedy('Create', config) );
+                } else if ( propDiff.DifferenceType == "NOT_EQUAL" ) {
+                    //handle parameter setting
+                    // console.log("Resetting drifted resource ", propDiff.ExpectedValue );
+                    console.log( remedy('Update', propDiff.ExpectedValue) );
+                }
+            }
+        }
+    }
 }
 
 function styleResourceDriftStatus( StackResourceDriftStatus : string ){
@@ -106,6 +140,10 @@ export async function viewCloudFormationDriftResults( context: $TSContext , resu
 
 export async function viewQuestionDriftDetection(context: $TSContext){
     return await prompter.yesOrNo('Would you like to check if any resources have been manually changed in the cloud?');
+}
+
+export async function viewQuestionDriftDetectionAnalysis(context: $TSContext){
+    return await prompter.yesOrNo('Would you like to analyze the drifted resources?');
 }
 
 export async function getAllResourceStackDrift( StackName : string, client: CloudFormationClient ){
@@ -182,14 +220,14 @@ async function* getResourceStackDriftGenerator( client : CloudFormationClient, s
 
     let response:DescribeStackResourceDriftsCommandOutput ;
     do {
-    const command = new DescribeStackResourceDriftsCommand( params );
-    response = await client.send(command);
-    if (response.StackResourceDrifts) {
-        const normalizedStackResourceDrifts = response.StackResourceDrifts.map( s => ({...s, StackName: stackName }));
-        response.StackResourceDrifts = normalizedStackResourceDrifts;
-    }
-    yield response;
-    params.NextToken = (response)?response.NextToken:undefined;
+        const command = new DescribeStackResourceDriftsCommand( params );
+        response = await client.send(command);
+        if (response.StackResourceDrifts) {
+            const normalizedStackResourceDrifts = response.StackResourceDrifts.map( s => ({...s, StackName: stackName }));
+            response.StackResourceDrifts = normalizedStackResourceDrifts;
+        }
+        yield response;
+        params.NextToken = (response)?response.NextToken:undefined;
     } while( response?.NextToken );
 }
 
