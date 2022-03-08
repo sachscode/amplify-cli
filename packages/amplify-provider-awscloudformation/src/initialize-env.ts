@@ -12,6 +12,7 @@ import { JSONUtilities, PathConstants, stateManager, $TSMeta, $TSContext, IAmpli
 import { pullHooks } from './utils/hooks-manager';
 import { buildOverridesEnabledResources } from './build-override-enabled-resources';
 
+
 export async function run(context: $TSContext, providerMetadata: $TSMeta) {
   if (context.exeInfo && context.exeInfo.isNewEnv) {
     return context;
@@ -40,7 +41,6 @@ export async function run(context: $TSContext, providerMetadata: $TSMeta) {
     // If backend must be restored then copy out the config files and overwrite existing ones.
     for (const cliJSONFilePath of cliJSONFiles) {
       const targetPath = path.join(amplifyDir, path.basename(cliJSONFilePath));
-
       fs.moveSync(cliJSONFilePath, targetPath, { overwrite: true });
     }
   } else {

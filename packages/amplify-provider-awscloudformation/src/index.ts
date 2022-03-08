@@ -33,10 +33,14 @@ import { $TSContext } from 'amplify-cli-core';
 import * as resourceExport from './export-resources';
 import * as exportUpdateMeta from './export-update-amplify-meta';
 
+export { downloadZip, extractZip } from './zip-util';
+export { S3BackendZipFileName } from './constants';
+export { S3 } from "./aws-utils/aws-s3";
 export { resolveAppId } from './utils/resolve-appId';
 export { loadConfigurationForEnv } from './configuration-manager';
 export { getLocationSupportedRegion, getLocationRegionMapping } from './aws-utils/aws-location';
 import { updateEnv } from './update-env';
+
 
 import { uploadHooksDirectory } from './utils/hooks-manager';
 import { getTransformerVersion } from './transform-graphql-schema';

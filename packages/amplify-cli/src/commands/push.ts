@@ -5,7 +5,7 @@ import sequential from 'promise-sequential';
 import { notifyFieldAuthSecurityChange, notifySecurityEnhancement } from '../extensions/amplify-helpers/auth-notifications';
 import { getProviderPlugins } from '../extensions/amplify-helpers/get-provider-plugins';
 import { showTroubleshootingURL } from './help';
-import { analyzeDriftResult, getCloudFormationStackDrift, viewAnalyzeDriftResults, viewCloudFormationDriftResults, viewQuestionDriftDetection } from './cfndrift';
+import { analyzeCFNDriftResult, getCloudFormationStackDrift, viewAnalyzeDriftResults, viewCloudFormationDriftResults, viewQuestionDriftDetection } from './cfndrift';
 const spinner = ora('');
 
 
@@ -19,7 +19,6 @@ async function syncCurrentCloudBackend(context: $TSContext) {
     const { projectPath } = context.exeInfo.localEnvInfo;
     const amplifyMeta: $TSObject = {};
     const teamProviderInfo = stateManager.getTeamProviderInfo(projectPath);
-
     amplifyMeta.providers = teamProviderInfo[currentEnv];
 
     const providerPlugins = getProviderPlugins(context);

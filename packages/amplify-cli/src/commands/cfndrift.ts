@@ -1,9 +1,8 @@
 
-
-import { CloudFormationClient, DescribeStackDriftDetectionStatusCommand,
+import { CloudFormationClient, GetTemplateCommand, DescribeStackDriftDetectionStatusCommand,
     DetectStackDriftCommand, DescribeStackResourceDriftsCommandOutput,
     DescribeStackResourceDriftsCommand, DescribeStackResourceDriftsCommandInput,
-ListStacksCommand, ListStacksCommandInput, ListStacksCommandOutput } from "@aws-sdk/client-cloudformation";
+ListStacksCommand, ListStacksCommandInput, ListStacksCommandOutput, GetTemplateCommandInput } from "@aws-sdk/client-cloudformation";
 import { DescribeStackDriftDetectionStatusOutput } from 'aws-sdk/clients/cloudformation';
 import { $TSAny, $TSContext, stateManager } from 'amplify-cli-core';
 import ora from 'ora';
@@ -11,6 +10,13 @@ import * as emoji from "node-emoji";
 import chalk from "chalk";
 import terminalLink from 'terminal-link';
 import { prompter, printer } from "amplify-prompts";
+import { downloadZip, extractZip } from "amplify-provider-awscloudformation";
+import { S3BackendZipFileName, S3 } from "amplify-provider-awscloudformation";
+import * as path from 'path';
+import { v4 as uuid } from 'uuid';
+import fs from 'fs-extra';
+
+
 const spinner = ora('');
 /**
  * Async function to query all stack ids in the Amplify project and print their differences.
@@ -53,11 +59,12 @@ export async function viewAnalyzeDriftResults(context:$TSContext, driftResults){
     }
     const showMitigation =  await viewQuestionDriftDetectionAnalysis(context);
     if ( showMitigation ){
-        analyzeDriftResult(driftResults)
+        analyzeCFNDriftResult(context, driftResults)
     }
 }
 
-export async function analyzeDriftResult(driftResults){
+export async function analyzeCFNDriftResult(context, driftResults){
+
     printer.warn("The following changes will be applied to the application resources in the cloud...");
     for ( const result of driftResults ){
         console.log(`Fix Resource:: ${result.ResourceType} physical id :: ${chalk.cyan(result.PhysicalResourceId)}`);
@@ -80,6 +87,7 @@ export async function analyzeDriftResult(driftResults){
             }
         }
     }
+    await applyReverseDriftUpdateStack(context, driftResults);
 }
 
 function styleResourceDriftStatus( StackResourceDriftStatus : string ){
@@ -231,13 +239,84 @@ async function* getResourceStackDriftGenerator( client : CloudFormationClient, s
     } while( response?.NextToken );
 }
 
+/********************** Apply reverse drift to stack and update ****************************/
+
+async function applyReverseDriftUpdateStack(context, driftResults){
+    const tmpFolderPath = buildTempAmplifyFolder(context);
+    printer.info("fixing drift: downloading stacks to be updated...");
+    const downloadedPath = await downloadDeployedAppFiles(context, tmpFolderPath, driftResults);
+    printer.info("fixing drift: applying reverse drift to stacks...");
+    const fixedPath = await applyDrift(context, downloadedPath, driftResults)
+    printer.info("fixing drift: applying reverse drift to the cloud...");
+    printer.info("fixing drift: drift resolved for stacks");
+}
+
+async function applyDrift( context , downloadedPath, driftResult ){
+    console.log("Drift result : ", JSON.stringify(driftResult, null, 2));
+    return downloadedPath;
+}
+
+
+/**
+ *
+ * @param context
+ * @param destinationPath  - local path where
+ * @returns path to downloaded folder
+ */
+async function downloadDeployedAppFiles( context : $TSContext, destinationPath : string, driftResults ){
+    createFolder( destinationPath );
+    for ( const driftResult of driftResults ) {
+        const cfnMeta = getCFNMeta();
+        const client = new CloudFormationClient({region: cfnMeta.Region});
+        printer.info(`StackID : ${driftResult.StackName}`);
+        const cmd = new GetTemplateCommand({ StackName : driftResult.StackName }) ;
+        const rsp = await client.send(cmd);
+        const templateBody = (rsp.TemplateBody)?JSON.parse(rsp.TemplateBody):undefined;
+        if ( templateBody ) {
+            const filename = path.join(destinationPath, driftResult.StackName);
+            fs.writeFileSync(filename, JSON.stringify( templateBody, null,2));
+        }
+    }
+    return destinationPath;
+}
+
+function createFolder(folderPath) : boolean{
+    try {
+        if (!fs.existsSync(folderPath)) {
+          fs.mkdirSync(folderPath)
+          return true;
+        }
+    } catch (err) {
+       return false
+    }
+    return true;
+}
+
+/**
+ * Build the path name for a temporary folder in amplify
+ * @param context
+ * @param prefix
+ * @returns Path to temporary directory in Amplify
+ */
+function buildTempAmplifyFolder(context, prefix? ){
+    let filePrefix = prefix;
+    if( !filePrefix ){
+        const [tempPrefix] = uuid().split('-');
+        filePrefix = tempPrefix
+    }
+    const amplifyDir = context.amplify.pathManager.getAmplifyDirPath();
+    const tempDirPath = path.join(amplifyDir, `.temp${filePrefix}`);
+    return tempDirPath
+}
+
+
 function checkDriftCheckDone(result){
     if (result.DetectionStatus === "DETECTION_IN_PROGRESS"){
       return false;
     } else {
       return true;
     }
-  }
+}
 
 function wait(ms){
     return new Promise((res) => setTimeout(res, ms));
