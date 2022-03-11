@@ -1,5 +1,5 @@
 
-import { CloudFormationClient, GetTemplateCommand, DescribeStackDriftDetectionStatusCommand,
+import { CloudFormationClient, GetTemplateCommand, UpdateStackCommand, UpdateStackCommandInput, DescribeStackDriftDetectionStatusCommand,
     DetectStackDriftCommand, DescribeStackResourceDriftsCommandOutput,
     DescribeStackResourceDriftsCommand, DescribeStackResourceDriftsCommandInput,
 ListStacksCommand, ListStacksCommandInput, ListStacksCommandOutput, GetTemplateCommandInput } from "@aws-sdk/client-cloudformation";
@@ -10,12 +10,10 @@ import * as emoji from "node-emoji";
 import chalk from "chalk";
 import terminalLink from 'terminal-link';
 import { prompter, printer } from "amplify-prompts";
-import { downloadZip, extractZip } from "amplify-provider-awscloudformation";
-import { S3BackendZipFileName, S3 } from "amplify-provider-awscloudformation";
 import * as path from 'path';
 import { v4 as uuid } from 'uuid';
 import fs from 'fs-extra';
-
+const jsonpatch = require('fast-json-patch');
 
 const spinner = ora('');
 /**
@@ -53,7 +51,7 @@ export async function getCloudFormationStackDrift() :  Promise<DescribeStackDrif
     return driftResults;
 }
 
-export async function viewAnalyzeDriftResults(context:$TSContext, driftResults){
+export async function viewAnalyzeDriftResults(context:$TSContext, driftResults: Array<DescribeStackDriftDetectionStatusOutput>){
     if (driftResults?.length <= 0 ){
         return;
     }
@@ -64,7 +62,7 @@ export async function viewAnalyzeDriftResults(context:$TSContext, driftResults){
 }
 
 export async function analyzeCFNDriftResult(context, driftResults){
-
+    console.log("SACPCDEBUG: analyzeCFNDriftResult: ", JSON.stringify(driftResults, null, 2));
     printer.warn("The following changes will be applied to the application resources in the cloud...");
     for ( const result of driftResults ){
         console.log(`Fix Resource:: ${result.ResourceType} physical id :: ${chalk.cyan(result.PhysicalResourceId)}`);
@@ -102,21 +100,33 @@ function styleResourceDriftStatus( StackResourceDriftStatus : string ){
     return StackResourceDriftStatus;
 }
 
-function generateClickableURL( StackName : string, StackId : string ){
-    const region = "us-west-2";
-    const stackURL = `https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/drifts?`;
-    const stackIDStr = `stackId=${StackId}`;
-    const finalURL = `${stackURL}${stackIDStr}`;
-    const link = terminalLink(StackName, finalURL);
+function generateClickableURL( stackName : string, stackId : string, region: string ){
+    const finalURL = buildDriftStackURL(stackId, region);
+    const link = terminalLink(stackName, finalURL);
     return link;
 }
 
+function buildDriftStackURL( stackId : string, region: string ){
+    const stackURL = `https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/drifts?`;
+    const stackIDStr = `stackId=${stackId}`;
+    const finalURL = `${stackURL}${stackIDStr}`;
+    return finalURL;
+}
+
+function buildTemplateStackURL( stackId : string, region: string ){
+    const stackURL = `https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/update/template?`;
+    const stackIDStr = `stackId=${stackId}`;
+    const finalURL = `${stackURL}${stackIDStr}`;
+    return finalURL;
+}
+
 function tabulateDriftResults( results:any[]){
+    const cfnMeta = getCFNMeta();
     const tableHeader = [["LogicalResourceId", "PhysicalResourceId","ResourceType", "Status", "Timestamp", "Stack Name"]];
     const tableRows = results.map( result => {
         return [result.LogicalResourceId, result.PhysicalResourceId,
                 result.ResourceType, styleResourceDriftStatus(result.StackResourceDriftStatus),
-                formatTimeStamp(result.Timestamp), generateClickableURL(result.StackName , result.StackId)]
+                formatTimeStamp(result.Timestamp), generateClickableURL(result.StackName , result.StackId, cfnMeta.Region)]
     });
     const tableOptions = [...tableHeader, ...tableRows];
     return tableOptions;
@@ -244,18 +254,86 @@ async function* getResourceStackDriftGenerator( client : CloudFormationClient, s
 async function applyReverseDriftUpdateStack(context, driftResults){
     const tmpFolderPath = buildTempAmplifyFolder(context);
     printer.info("fixing drift: downloading stacks to be updated...");
-    const downloadedPath = await downloadDeployedAppFiles(context, tmpFolderPath, driftResults);
-    printer.info("fixing drift: applying reverse drift to stacks...");
-    const fixedPath = await applyDrift(context, downloadedPath, driftResults)
+    //const downloadedPath = await downloadDeployedAppFiles(context, tmpFolderPath, driftResults);
+    const fixedPath = await applyDrift(context, tmpFolderPath, driftResults)
     printer.info("fixing drift: applying reverse drift to the cloud...");
     printer.info("fixing drift: drift resolved for stacks");
 }
 
-async function applyDrift( context , downloadedPath, driftResult ){
-    console.log("Drift result : ", JSON.stringify(driftResult, null, 2));
-    return downloadedPath;
+function getPatchFromPropDiff( driftResult, propDiff ){
+    let patchObj : $TSAny = { op : null, path : null }
+    patchObj.op = propDiff.DifferenceType.toLowerCase();
+    patchObj.path = `/Resources/${driftResult.LogicalResourceId}/Properties${propDiff.PropertyPath}`;
+    if ( propDiff.ActualValue != "null" ){
+        console.log("PROPDIFF: ", propDiff.PropertyPath);
+        patchObj.value = propDiff.ActualValue
+    }
+    return patchObj;
 }
 
+async function applyDrift( context , tmpFolderPath, driftResults ){
+    const cfnMeta = getCFNMeta();
+    for await (let response of downloadDeployedAppFiles(context, tmpFolderPath, driftResults )) {
+            console.log(`Patching : ${response.driftResult.StackResourceDriftStatus}`)
+            //Modification
+            if ( response.driftResult.StackResourceDriftStatus ==  "MODIFIED" ) {
+                if ( response.driftResult.PropertyDifferences ){
+                    const patches = response.driftResult.PropertyDifferences.map( propDiff => getPatchFromPropDiff(response.driftResult, propDiff) );
+                    console.log("Patching: Applying patches: ", JSON.stringify(patches, null, 2));
+                    //apply patches
+                    try {
+                        response.templateBody = jsonpatch.applyPatch(response.templateBody, patches).newDocument;
+                    } catch(error ){
+                        console.error(error);
+                    };
+                    fs.writeFileSync(`${response.filename}`, JSON.stringify(response.templateBody, null,2));
+                    //update stack
+                    const updateResponse = await driftHandlerUpdateCFNStack( response.driftResult,
+                                                                             cfnMeta.Region,
+                                                                             JSON.stringify(response.templateBody));
+                } else {
+                    printer.error(`Malformed drift status : ${response.driftResult}`)
+                }
+            }
+    }
+    return tmpFolderPath;
+}
+
+async function driftHandlerGetCFNStack(StackName :string, Region:string){
+    const client = new CloudFormationClient({region: Region});
+    printer.info(`1.StackID : ${StackName}`);
+    const cmd = new GetTemplateCommand({StackName}) ;
+    console.log("2.Building Template Command");
+    const rsp = await client.send(cmd);
+    return rsp;
+}
+async function driftHandlerUpdateCFNStack(driftResult, region:string,  TemplateBodyString: string){
+    const client = new CloudFormationClient({region: region});
+    printer.info(`1.StackID : ${driftResult.StackName}`);
+    const stackURL = buildTemplateStackURL( driftResult.stackId, region );
+    const cmd = new UpdateStackCommand({ StackName: driftResult.StackName ,
+                                         TemplateURL : stackURL,
+                                         TemplateBody: TemplateBodyString}) ;
+    console.log("2.Updating Template Template Command");
+    let rsp;
+    try {
+        rsp = await client.send(cmd);
+    } catch( error ){
+        console.error("Template Update failed ", error);
+    }
+    console.log("2.Received Template Update Response", JSON.stringify(rsp));
+    return rsp;
+}
+
+
+async function driftHandlerSaveCFNStack( destinationPath: string, stackName: string, templateBody: $TSAny){
+    const filename = path.join(destinationPath, stackName);
+    console.log("5.Saving file");
+    if ( templateBody ) {
+        fs.writeFileSync(filename, JSON.stringify( templateBody, null,2));
+    }
+    return filename
+}
 
 /**
  *
@@ -263,19 +341,14 @@ async function applyDrift( context , downloadedPath, driftResult ){
  * @param destinationPath  - local path where
  * @returns path to downloaded folder
  */
-async function downloadDeployedAppFiles( context : $TSContext, destinationPath : string, driftResults ){
+async function* downloadDeployedAppFiles( context : $TSContext, destinationPath : string, driftResults ){
     createFolder( destinationPath );
+    const cfnMeta = getCFNMeta();
     for ( const driftResult of driftResults ) {
-        const cfnMeta = getCFNMeta();
-        const client = new CloudFormationClient({region: cfnMeta.Region});
-        printer.info(`StackID : ${driftResult.StackName}`);
-        const cmd = new GetTemplateCommand({ StackName : driftResult.StackName }) ;
-        const rsp = await client.send(cmd);
+        const rsp = await driftHandlerGetCFNStack(driftResult.StackName, cfnMeta.Region);
         const templateBody = (rsp.TemplateBody)?JSON.parse(rsp.TemplateBody):undefined;
-        if ( templateBody ) {
-            const filename = path.join(destinationPath, driftResult.StackName);
-            fs.writeFileSync(filename, JSON.stringify( templateBody, null,2));
-        }
+        const filename = await driftHandlerSaveCFNStack(destinationPath, driftResult.StackName, templateBody);
+        yield ({ filename, driftResult , templateBody });
     }
     return destinationPath;
 }
