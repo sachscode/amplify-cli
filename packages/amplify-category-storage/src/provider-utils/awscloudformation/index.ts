@@ -1,22 +1,44 @@
-import { $TSAny, $TSContext, exitOnNextTick, JSONUtilities, NotImplementedError, stateManager } from 'amplify-cli-core';
+/* eslint-disable jsdoc/require-description */
+/* eslint-disable no-trailing-spaces */
+/* eslint-disable import/no-cycle */
+/* eslint-disable import/newline-after-import */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable func-style */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+import {
+  $TSAny, $TSContext, exitOnNextTick, JSONUtilities, NotImplementedError, stateManager, 
+} from 'amplify-cli-core';
 import { printer } from 'amplify-prompts';
 import _ from 'lodash';
 import { importDynamoDB, importedDynamoDBEnvInit } from './import/import-dynamodb';
 import { importedS3EnvInit, importS3 } from './import/import-s3';
 export { importResource } from './import';
 
+/**
+ * 
+ * @param context  - CLI context
+ * @param category - Category to add resource for 
+ * @param service  - Service
+ * @param options  - Options selected for the service
+ * @returns 
+ */
 export async function addResource(context: $TSContext, category: string, service: string, options: $TSAny) {
   const serviceMetadata = ((await import('../supported-services')) as $TSAny).supportedServices[service];
   const { defaultValuesFilename, serviceWalkthroughFilename } = serviceMetadata;
   const serviceWalkthroughSrc = `${__dirname}/service-walkthroughs/${serviceWalkthroughFilename}`;
   const { addWalkthrough } = await import(serviceWalkthroughSrc);
-
+  context.usageData.pushFlow({ service });// SACPCTBD : push depth/${service}/
+  console.log('SACPCDEBUG:addResource:Options: ', JSON.stringify(options, null, 2));
   return addWalkthrough(context, defaultValuesFilename, serviceMetadata, options).then(async (resourceName: string) => {
     context.amplify.updateamplifyMetaAfterResourceAdd(category, resourceName, options);
     return resourceName;
   });
 }
 
+/**
+ *
+ */
 export async function updateResource(context: $TSContext, category: string, service: string) {
   const serviceMetadata = ((await import('../supported-services')) as $TSAny).supportedServices[service];
   const { defaultValuesFilename, serviceWalkthroughFilename } = serviceMetadata;
@@ -33,6 +55,9 @@ export async function updateResource(context: $TSContext, category: string, serv
   return updateWalkthrough(context, defaultValuesFilename, serviceMetadata);
 }
 
+/**
+ *
+ */
 export async function migrateResource(context: $TSContext, projectPath: string, service: string, resourceName: string) {
   const serviceMetadata = ((await import('../supported-services')) as $TSAny).supportedServices[service];
   const { serviceWalkthroughFilename } = serviceMetadata;
@@ -47,6 +72,9 @@ export async function migrateResource(context: $TSContext, projectPath: string, 
   return migrate(context, projectPath, resourceName);
 }
 
+/**
+ *
+ */
 export async function getPermissionPolicies(service: string, resourceName: string, crudOptions: $TSAny) {
   const serviceMetadata = ((await import('../supported-services')) as $TSAny).supportedServices[service];
   const { serviceWalkthroughFilename } = serviceMetadata;
@@ -56,6 +84,9 @@ export async function getPermissionPolicies(service: string, resourceName: strin
   return getIAMPolicies(resourceName, crudOptions);
 }
 
+/**
+ *
+ */
 export async function updateConfigOnEnvInit(context: $TSContext, category: string, resourceName: string, service: string) {
   const serviceMetadata = ((await import('../supported-services')) as $TSAny).supportedServices[service];
   const { provider } = serviceMetadata;
@@ -64,7 +95,7 @@ export async function updateConfigOnEnvInit(context: $TSContext, category: strin
   // previously selected answers
   const resourceParams = providerPlugin.loadResourceParameters(context, category, resourceName);
   // ask only env specific questions
-  let currentEnvSpecificValues = context.amplify.loadEnvResourceParameters(context, category, resourceName);
+  const currentEnvSpecificValues = context.amplify.loadEnvResourceParameters(context, category, resourceName);
 
   const resource = _.get(context.exeInfo, ['amplifyMeta', category, resourceName]);
 

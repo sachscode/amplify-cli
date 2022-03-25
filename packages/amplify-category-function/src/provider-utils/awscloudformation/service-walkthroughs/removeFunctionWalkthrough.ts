@@ -1,9 +1,16 @@
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable jsdoc/require-description */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable func-style */
 import { $TSAny, stateManager, getAmplifyResourceByCategories } from 'amplify-cli-core';
 import inquirer from 'inquirer';
 import _ from 'lodash';
 import { categoryName } from '../../../constants';
 import { ServiceName } from '../utils/constants';
 
+/**
+ *
+ */
 export async function removeResource(resourceName?: string): Promise<$TSAny> {
   const enabledCategoryResources = getEnabledResources();
 

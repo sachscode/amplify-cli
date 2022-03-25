@@ -1,4 +1,15 @@
-import { $TSAny, $TSContext, exitOnNextTick, ResourceDoesNotExistError, ServiceSelection } from 'amplify-cli-core';
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable max-len */
+/* eslint-disable jsdoc/require-description */
+/* eslint-disable no-param-reassign */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable no-restricted-syntax */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable func-style */
+import {
+  $TSAny, $TSContext, exitOnNextTick, ResourceDoesNotExistError, ServiceSelection,
+} from 'amplify-cli-core';
 import * as inquirer from 'inquirer';
 
 import { getProjectConfig } from './get-project-config';
@@ -9,7 +20,7 @@ type ServiceSelectionOption = {
   value: ServiceSelection;
 };
 
-function filterServicesByEnabledProviders(context: $TSContext, enabledProviders: string[], supportedServices) {
+function filterServicesByEnabledProviders(context: $TSContext, enabledProviders: string[], supportedServices: { [x: string]: { provider: any; alias: any; }; } | undefined) {
   const providerPlugins = getProviderPlugins(context);
 
   const filteredServices: $TSAny[] = [];
@@ -23,7 +34,7 @@ function filterServicesByEnabledProviders(context: $TSContext, enabledProviders:
           service: serviceName,
           providerPlugin: providerPlugins[provider],
           providerName: provider,
-          alias: alias,
+          alias,
         });
       }
     });
@@ -34,8 +45,8 @@ function filterServicesByEnabledProviders(context: $TSContext, enabledProviders:
 
 async function serviceQuestionWalkthrough(
   context: $TSContext,
-  supportedServices,
-  category,
+  supportedServices: any,
+  category: string,
   customQuestion = null,
   optionNameOverrides?: Record<string, string>,
 ): Promise<ServiceSelection> {
@@ -86,6 +97,9 @@ async function serviceQuestionWalkthrough(
   return answer.service;
 }
 
+/**
+ *
+ */
 export function serviceSelectionPrompt(
   context: $TSContext,
   category: string,
@@ -95,5 +109,6 @@ export function serviceSelectionPrompt(
 ): Promise<ServiceSelection> {
   const { providers } = getProjectConfig();
   supportedServices = filterServicesByEnabledProviders(context, providers, supportedServices);
-  return serviceQuestionWalkthrough(context, supportedServices, category, customQuestion, optionNameOverrides);
+  const serviceSelected = serviceQuestionWalkthrough(context, supportedServices, category, customQuestion, optionNameOverrides);
+  return serviceSelected;
 }

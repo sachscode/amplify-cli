@@ -1,3 +1,16 @@
+/* eslint-disable eqeqeq */
+/* eslint-disable max-len */
+/* eslint-disable no-case-declarations */
+/* eslint-disable default-case */
+/* eslint-disable no-await-in-loop */
+/* eslint-disable import/no-cycle */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable func-style */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable consistent-return */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable no-param-reassign */
+/* eslint-disable spellcheck/spell-checker */
 import {
   $TSAny,
   $TSContext,
@@ -40,9 +53,9 @@ import { S3InputState } from './s3-user-input-state';
 /**
  * addWalkthrough: add storage walkthrough for S3 resource
  * (creates cliInputs for the resource).
- * @param context
- * @param defaultValuesFilename
- * @param serviceMetadata
+ * @param context - CLI context
+ * @param defaultValuesFilename - default values file for add-walkthrough
+ * @param serviceMetadata - service data
  * @param options selected by user
  * @returns resourceName
  */
@@ -50,18 +63,19 @@ export async function addWalkthrough(context: $TSContext, defaultValuesFilename:
   const { amplify } = context;
   const amplifyMeta = stateManager.getMeta();
 
-  //Migrate auth category if required
+  // Migrate auth category if required
   try {
-    const authMigerationAccepted = await migrateAuthDependencyResource(context);
-    if (!authMigerationAccepted) {
+    const authMigrationAccepted = await migrateAuthDependencyResource(context);
+    if (!authMigrationAccepted) {
       exitOnNextTick(0);
     }
+    context.usageData.pushFlow({ authMigrationAccepted }); // SACPCTBD save migration accepted in flow
   } catch (error) {
     await printErrorAuthResourceMigrationFailed(context);
     exitOnNextTick(0);
   }
 
-  //First ask customers to configure Auth on the S3 resource, invoke auth workflow
+  // First ask customers to configure Auth on the S3 resource, invoke auth workflow
   await askAndInvokeAuthWorkflow(context);
   const resourceName = await getS3ResourceNameFromMeta(amplifyMeta);
 
@@ -69,44 +83,44 @@ export async function addWalkthrough(context: $TSContext, defaultValuesFilename:
     await printErrorAlreadyCreated(context);
     exitOnNextTick(0);
   } else {
-    //Ask S3 walkthrough questions
-    const policyID = buildShortUUID(); //prefix/suffix for all resources.
+    // Ask S3 walkthrough questions
+    const policyID = buildShortUUID(); // prefix/suffix for all resources.
     const defaultValues = getAllDefaults(amplify.getProjectDetails(), policyID);
-    const storageResourceName = await askResourceNameQuestion(context, defaultValues); //Cannot be changed once added
-    const bucketName = await askBucketNameQuestion(context, defaultValues, storageResourceName); //Cannot be changed once added
-    let cliInputs: S3UserInputs = Object.assign({}, defaultValues);
+    const storageResourceName = await askResourceNameQuestion(context, defaultValues); // Cannot be changed once added
+    const bucketName = await askBucketNameQuestion(context, defaultValues, storageResourceName); // Cannot be changed once added
+    let cliInputs: S3UserInputs = { ...defaultValues };
     cliInputs.policyUUID = policyID;
     cliInputs.resourceName = storageResourceName;
     cliInputs.bucketName = bucketName;
-    //Check if user-pools are already created
+    // Check if user-pools are already created
     const userPoolGroupList = context.amplify.getUserPoolGroupList();
     if (userPoolGroupList && userPoolGroupList.length > 0) {
-      //Ask Groups, Auth or Guest , or Both access
-      cliInputs = await askGroupOrIndividualAccessFlow(userPoolGroupList, context, cliInputs);
-      //Ask S3 walkthrough questions
+      // Ask Groups, Auth or Guest , or Both access
+      cliInputs = await askGroupOrIndividualAccessFlow(context, userPoolGroupList, cliInputs);
+      // Ask S3 walkthrough questions
     } else {
-      //Ask Auth or Guest access
-      cliInputs.storageAccess = await await askWhoHasAccessQuestion(context, defaultValues); //Auth/Guest
+      // Ask Auth or Guest access
+      cliInputs.storageAccess = await await askWhoHasAccessQuestion(context, defaultValues); // Auth/Guest
       cliInputs.authAccess = await askAuthPermissionQuestion(context, defaultValues);
-      cliInputs.guestAccess = await await conditionallyAskGuestPermissionQuestion(cliInputs.storageAccess, context, defaultValues);
+      cliInputs.guestAccess = await await conditionallyAskGuestPermissionQuestion(context, cliInputs.storageAccess, defaultValues);
     }
     const triggerFunction = await startAddTriggerFunctionFlow(context, storageResourceName, policyID, undefined);
-    cliInputs.triggerFunction = triggerFunction ? triggerFunction : 'NONE';
+    cliInputs.triggerFunction = triggerFunction || 'NONE';
 
-    //Validate Authentication requirements
-    //e.g if storage is added after import auth,
+    // Validate Authentication requirements
+    // e.g if storage is added after import auth,
     const allowUnauthenticatedIdentities = cliInputs.guestAccess && cliInputs.guestAccess.length > 0;
     await checkStorageAuthenticationRequirements(context, storageResourceName, allowUnauthenticatedIdentities);
 
-    //Save CLI Inputs payload
+    // Save CLI Inputs payload
     const cliInputsState = new S3InputState(cliInputs.resourceName as string, cliInputs);
     await cliInputsState.saveCliInputPayload(cliInputs);
 
-    //Generate Cloudformation
+    // Generate Cloudformation
     const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context);
     await stackGenerator.transform(CLISubCommandType.ADD);
 
-    //Insert dependsOn into Options!! - The caller syncs this into amplify-meta
+    // Insert dependsOn into Options!! - The caller syncs this into amplify-meta
     const dependsOn = stackGenerator.getS3DependsOn();
     if (dependsOn) {
       options.dependsOn = dependsOn;
@@ -133,41 +147,41 @@ export async function updateWalkthrough(context: $TSContext) {
       printer.error('Updating of an imported storage resource is not supported.');
       return;
     }
-    //load existing cliInputs
-    let cliInputsState = new S3InputState(storageResourceName, undefined);
+    // load existing cliInputs
+    const cliInputsState = new S3InputState(storageResourceName, undefined);
 
-    //Check if migration is required
+    // Check if migration is required
     const headlessMigrate = context.input.options?.yes || context.input.options?.forcePush || context.input.options?.headless;
     if (!cliInputsState.cliInputFileExists()) {
       if (
-        headlessMigrate ||
-        (await prompter.yesOrNo(getMigrateResourceMessageForOverride(AmplifyCategories.STORAGE, storageResourceName), true))
+        headlessMigrate
+        || (await prompter.yesOrNo(getMigrateResourceMessageForOverride(AmplifyCategories.STORAGE, storageResourceName), true))
       ) {
-        //migrate auth and storage
+        // migrate auth and storage
         await cliInputsState.migrate(context);
         const stackGenerator = new AmplifyS3ResourceStackTransform(storageResourceName, context);
-        await stackGenerator.transform(CLISubCommandType.UPDATE); //generates cloudformation
+        await stackGenerator.transform(CLISubCommandType.UPDATE); // generates cloudformation
       } else {
         return;
       }
     }
 
-    let previousUserInput = cliInputsState.getUserInput();
-    let cliInputs: S3UserInputs = Object.assign({}, previousUserInput); //overwrite this with updated params
-    //note: If userPoolGroups have been created/Updated, then they need to be updated in CLI Inputs
-    //This check is not required once Auth is integrated with s3-auth-apis.
+    const previousUserInput = cliInputsState.getUserInput();
+    let cliInputs: S3UserInputs = { ...previousUserInput }; // overwrite this with updated params
+    // note: If userPoolGroups have been created/Updated, then they need to be updated in CLI Inputs
+    // This check is not required once Auth is integrated with s3-auth-apis.
     const userPoolGroupList = context.amplify.getUserPoolGroupList();
     if (userPoolGroupList && userPoolGroupList.length > 0) {
-      cliInputs = await askGroupOrIndividualAccessFlow(userPoolGroupList, context, cliInputs);
-      //Ask S3 walkthrough questions
+      cliInputs = await askGroupOrIndividualAccessFlow(context, userPoolGroupList, cliInputs);
+      // Ask S3 walkthrough questions
     } else {
-      //Build userInputs for S3 resources
-      cliInputs.storageAccess = await askWhoHasAccessQuestion(context, previousUserInput); //Auth/Guest
+      // Build userInputs for S3 resources
+      cliInputs.storageAccess = await askWhoHasAccessQuestion(context, previousUserInput); // Auth/Guest
       cliInputs.authAccess = await askAuthPermissionQuestion(context, previousUserInput);
-      cliInputs.guestAccess = await conditionallyAskGuestPermissionQuestion(cliInputs.storageAccess, context, previousUserInput);
+      cliInputs.guestAccess = await conditionallyAskGuestPermissionQuestion(context, cliInputs.storageAccess, previousUserInput);
     }
-    //Build userInputs for S3 resources
-    if (previousUserInput.triggerFunction && previousUserInput.triggerFunction != 'NONE') {
+    // Build userInputs for S3 resources
+    if (previousUserInput.triggerFunction && previousUserInput.triggerFunction !== 'NONE') {
       cliInputs.triggerFunction = await startUpdateTriggerFunctionFlow(
         context,
         storageResourceName,
@@ -183,14 +197,14 @@ export async function updateWalkthrough(context: $TSContext) {
       );
     }
 
-    //Validate Authentication requirements
-    //e.g if storage is added after import auth,
+    // Validate Authentication requirements
+    // e.g if storage is added after import auth,
     const allowUnauthenticatedIdentities = cliInputs.guestAccess && cliInputs.guestAccess.length > 0;
     await checkStorageAuthenticationRequirements(context, storageResourceName, allowUnauthenticatedIdentities);
 
-    //Save CLI Inputs payload
+    // Save CLI Inputs payload
     await cliInputsState.saveCliInputPayload(cliInputs);
-    //Generate Cloudformation
+    // Generate Cloudformation
     const stackGenerator = new AmplifyS3ResourceStackTransform(cliInputs.resourceName as string, context);
     await stackGenerator.transform(CLISubCommandType.UPDATE);
     return cliInputs.resourceName;
@@ -217,19 +231,18 @@ export function isMigrateStorageRequired(context: $TSContext, resourceName: stri
  * @param resourceName
  */
 export async function migrateStorageCategory(context: $TSContext, resourceName: string): Promise<string | undefined> {
-  let cliInputsState = new S3InputState(resourceName, undefined);
-  //Check if migration is required
+  const cliInputsState = new S3InputState(resourceName, undefined);
+  // Check if migration is required
   if (!cliInputsState.cliInputFileExists()) {
     await cliInputsState.migrate(context);
     const stackGenerator = new AmplifyS3ResourceStackTransform(resourceName, context);
     await stackGenerator.transform(CLISubCommandType.MIGRATE);
     return stackGenerator.getCFN();
-  } else {
-    return undefined;
   }
+  return undefined;
 }
 
-/**** Helper functions and Interactive flows *****/
+/** ** Helper functions and Interactive flows *****/
 
 /**
  * buildShortUUID() - generator function
@@ -257,10 +270,10 @@ async function startAddTriggerFunctionFlow(
   existingTriggerFunction: string | undefined,
 ): Promise<string | undefined> {
   const enableLambdaTriggerOnS3: boolean = await prompter.yesOrNo('Do you want to add a Lambda Trigger for your S3 Bucket?', false);
-  let triggerFunction: string | undefined = undefined;
+  let triggerFunction: string | undefined;
   if (enableLambdaTriggerOnS3) {
     try {
-      //create new function or add existing function as trigger to S3 bucket.
+      // create new function or add existing function as trigger to S3 bucket.
       triggerFunction = await addTrigger(S3CLITriggerFlow.ADD, context, resourceName, policyID, existingTriggerFunction);
     } catch (e) {
       printer.error((e as Error).message);
@@ -285,10 +298,10 @@ async function startUpdateTriggerFunctionFlow(
 ): Promise<string | undefined> {
   let triggerFunction = existingTriggerFunction;
 
-  //Update Trigger Flow
+  // Update Trigger Flow
   let continueWithTriggerOperationQuestion = true;
   do {
-    const triggerOperationAnswer = await askUpdateTriggerSelection(existingTriggerFunction);
+    const triggerOperationAnswer = await askUpdateTriggerSelection(context, existingTriggerFunction);
     switch (triggerOperationAnswer) {
       case S3CLITriggerUpdateMenuOptions.ADD:
       case S3CLITriggerUpdateMenuOptions.UPDATE: {
@@ -304,7 +317,7 @@ async function startUpdateTriggerFunctionFlow(
       case S3CLITriggerUpdateMenuOptions.REMOVE: {
         if (triggerFunction) {
           await removeTriggerPolicy(context, resourceName, triggerFunction);
-          triggerFunction = undefined; //cli inputs should not have function
+          triggerFunction = undefined; // cli inputs should not have function
           continueWithTriggerOperationQuestion = false;
         }
         break;
@@ -346,11 +359,11 @@ export async function addTrigger(
       throw new Error("Lambda Trigger is already enabled, please use 'amplify update storage'");
     case S3CLITriggerStateEvent.ADD_NEW_TRIGGER:
       // Check if functions exist and if exists, ask if Cx wants to use existing or create new
-      let existingLambdaResources = await getExistingFunctionsForTrigger(context, existingTriggerFunction, false);
+      const existingLambdaResources = await getExistingFunctionsForTrigger(context, existingTriggerFunction, false);
       if (existingLambdaResources && existingLambdaResources.length > 0) {
         triggerFunction = await interactiveAskTriggerTypeFlow(context, policyID, existingTriggerFunction, existingLambdaResources);
       } else {
-        //add a new function
+        // add a new function
         triggerFunction = await interactiveCreateNewLambdaAndUpdateCFN(context);
       }
       break;
@@ -400,13 +413,13 @@ async function removeTriggerPolicy(context: $TSContext, resourceName: string, tr
  * @returns s3 resource name
  */
 async function getS3ResourceNameFromMeta(amplifyMeta: $TSAny): Promise<string | undefined> {
-  //Fetch storage resources from Amplify Meta file
+  // Fetch storage resources from Amplify Meta file
   const storageResources: Record<string, $TSAny> | undefined = getS3ResourcesFromAmplifyMeta(amplifyMeta);
   if (storageResources) {
     if (Object.keys(storageResources).length === 0) {
       return undefined;
     }
-    const [resourceName] = Object.keys(storageResources); //only one resource is allowed
+    const [resourceName] = Object.keys(storageResources); // only one resource is allowed
     return resourceName;
   }
   return undefined;
@@ -421,12 +434,12 @@ function getS3ResourcesFromAmplifyMeta(amplifyMeta: $TSMeta): Record<string, $TS
   if (!amplifyMeta.hasOwnProperty(AmplifyCategories.STORAGE)) {
     return undefined;
   }
-  const resources: Record<string, $TSAny> = {}; //maps cx resource to
+  const resources: Record<string, $TSAny> = {}; // maps cx resource to
   Object.keys(amplifyMeta[AmplifyCategories.STORAGE]).forEach(resourceName => {
     if (
-      amplifyMeta[AmplifyCategories.STORAGE][resourceName].service === AmplifySupportedService.S3 &&
-      amplifyMeta[AmplifyCategories.STORAGE][resourceName].mobileHubMigrated !== true &&
-      amplifyMeta[AmplifyCategories.STORAGE][resourceName].serviceType !== 'imported'
+      amplifyMeta[AmplifyCategories.STORAGE][resourceName].service === AmplifySupportedService.S3
+      && amplifyMeta[AmplifyCategories.STORAGE][resourceName].mobileHubMigrated !== true
+      && amplifyMeta[AmplifyCategories.STORAGE][resourceName].serviceType !== 'imported'
     ) {
       resources[resourceName] = amplifyMeta[AmplifyCategories.STORAGE][resourceName];
     }
@@ -448,8 +461,8 @@ export async function createNewLambdaAndUpdateCFN(
   policyUUID: string | undefined,
 ): Promise<string> {
   const targetDir = context.amplify.pathManager.getBackendDirPath();
-  const newShortUUID = policyUUID ? policyUUID : buildShortUUID();
-  const newFunctionName = triggerFunctionName ? triggerFunctionName : `S3Trigger${newShortUUID}`;
+  const newShortUUID = policyUUID || buildShortUUID();
+  const newFunctionName = triggerFunctionName || `S3Trigger${newShortUUID}`;
   const pluginDir = __dirname;
   const defaults = {
     functionName: `${newFunctionName}`,
@@ -508,8 +521,8 @@ async function getExistingFunctionsForTrigger(
   excludeFunctionName: string | undefined,
   isInteractive: boolean,
 ): Promise<Array<string>> {
-  //Build the list of functions to be excluded ( existing-trigger, adminTrigger )
-  let excludeFunctionList = excludeFunctionName ? [excludeFunctionName] : [];
+  // Build the list of functions to be excluded ( existing-trigger, adminTrigger )
+  const excludeFunctionList = excludeFunctionName ? [excludeFunctionName] : [];
   const adminTriggerFunction = await s3GetAdminTriggerFunctionName(context);
   if (adminTriggerFunction && adminTriggerFunction != 'NONE') {
     excludeFunctionList.push(adminTriggerFunction);
@@ -540,11 +553,11 @@ export enum S3CLITriggerFlow {
  * Used by a Flow to generate the action to be performed on the Trigger's State.
  */
 export enum S3CLITriggerStateEvent {
-  ADD_NEW_TRIGGER = 'ADD_NEW_TRIGGER', //no trigger exists, need to be added in cloudformation
-  REPLACE_TRIGGER = 'REPLACE_TRIGGER', //trigger exists, (delete old trigger, add new trigger)
-  DELETE_TRIGGER = 'DELETE_TRIGGER', //delete existing trigger from s3 cloudformation and delete file
-  ERROR = 'TRIGGER_ERROR', //This state change is not allowed
-  NO_OP = 'TRIGGER_NO_OP', //No change required here
+  ADD_NEW_TRIGGER = 'ADD_NEW_TRIGGER', // no trigger exists, need to be added in cloudformation
+  REPLACE_TRIGGER = 'REPLACE_TRIGGER', // trigger exists, (delete old trigger, add new trigger)
+  DELETE_TRIGGER = 'DELETE_TRIGGER', // delete existing trigger from s3 cloudformation and delete file
+  ERROR = 'TRIGGER_ERROR', // This state change is not allowed
+  NO_OP = 'TRIGGER_NO_OP', // No change required here
 }
 
 /**
@@ -556,22 +569,18 @@ export enum S3CLITriggerStateEvent {
 function getCLITriggerStateEvent(triggerFlowType: S3CLITriggerFlow, existingTriggerFunction: string | undefined): S3CLITriggerStateEvent {
   if (triggerFlowType === S3CLITriggerFlow.ADD) {
     if (existingTriggerFunction) {
-      return S3CLITriggerStateEvent.ERROR; //ERROR:Adding a new function when a trigger already exists
-    } else {
-      return S3CLITriggerStateEvent.ADD_NEW_TRIGGER;
+      return S3CLITriggerStateEvent.ERROR; // ERROR:Adding a new function when a trigger already exists
     }
-  } else {
-    if (triggerFlowType === S3CLITriggerFlow.UPDATE) {
-      return S3CLITriggerStateEvent.REPLACE_TRIGGER; //Update function should ask for existing or new function to be added
-    } else {
-      //REMOVE Flow
-      if (existingTriggerFunction) {
-        return S3CLITriggerStateEvent.DELETE_TRIGGER;
-      } else {
-        return S3CLITriggerStateEvent.NO_OP;
-      }
-    }
+    return S3CLITriggerStateEvent.ADD_NEW_TRIGGER;
   }
+  if (triggerFlowType === S3CLITriggerFlow.UPDATE) {
+    return S3CLITriggerStateEvent.REPLACE_TRIGGER; // Update function should ask for existing or new function to be added
+  }
+  // REMOVE Flow
+  if (existingTriggerFunction) {
+    return S3CLITriggerStateEvent.DELETE_TRIGGER;
+  }
+  return S3CLITriggerStateEvent.NO_OP;
 }
 
 /**
@@ -580,7 +589,7 @@ function getCLITriggerStateEvent(triggerFlowType: S3CLITriggerFlow, existingTrig
  * @returns TriggerFunction name
  */
 async function interactiveCreateNewLambdaAndUpdateCFN(context: $TSContext) {
-  const newTriggerFunction = await createNewLambdaAndUpdateCFN(context, undefined /*default function name*/, undefined /*unique shortid*/);
+  const newTriggerFunction = await createNewLambdaAndUpdateCFN(context, undefined /* default function name*/, undefined /* unique shortid*/);
   await askAndOpenFunctionEditor(context, newTriggerFunction);
   return newTriggerFunction;
 }
@@ -597,14 +606,12 @@ async function interactiveAddExistingLambdaAndUpdateCFN(
   existingTriggerFunction: string | undefined = undefined,
   existingLambdaResources: Array<string> | undefined = undefined,
 ) {
-  //Get all available lambdas - [ exclude the existing triggerFunction ]
-  //note:- In an [update storage + Add trigger flow] , the existing lambda resources are already read and passed into this function.
-  let lambdaResources = existingLambdaResources
-    ? existingLambdaResources
-    : await getExistingFunctionsForTrigger(context, existingTriggerFunction, true);
-  //Select the function to add trigger
-  const selectedFunction = await askSelectExistingFunctionToAddTrigger(lambdaResources);
-  //User selected the currently configured trigger function. Hence CFN not updated.
+  // Get all available lambdas - [ exclude the existing triggerFunction ]
+  // note:- In an [update storage + Add trigger flow] , the existing lambda resources are already read and passed into this function.
+  const lambdaResources = existingLambdaResources || await getExistingFunctionsForTrigger(context, existingTriggerFunction, true);
+  // Select the function to add trigger
+  const selectedFunction = await askSelectExistingFunctionToAddTrigger(context, lambdaResources);
+  // User selected the currently configured trigger function. Hence CFN not updated.
   return selectedFunction;
 }
 
@@ -623,33 +630,36 @@ async function interactiveAskTriggerTypeFlow(
   existingTriggerFunction: string | undefined,
   existingLambdaResources: Array<string> | undefined = undefined,
 ) {
-  const triggerTypeAnswer: S3TriggerFunctionType = await askTriggerFunctionTypeQuestion();
+  const triggerTypeAnswer: S3TriggerFunctionType = await askTriggerFunctionTypeQuestion(context);
   switch (triggerTypeAnswer) {
     case S3TriggerFunctionType.EXISTING_FUNCTION:
       const selectedFunction = await interactiveAddExistingLambdaAndUpdateCFN(context, existingTriggerFunction, existingLambdaResources);
       return selectedFunction;
     case S3TriggerFunctionType.NEW_FUNCTION:
-      //Create a new lambda trigger and update cloudformation
+      // Create a new lambda trigger and update cloudformation
       const newTriggerFunction = await interactiveCreateNewLambdaAndUpdateCFN(context);
       return newTriggerFunction;
-  } //Existing function or New function
+  } // Existing function or New function
 }
 
 /**
- *
+ * Get list of all lambdas to be used to select triggers
  * @param context Query CLI context to get the list of available Lambda functions
  * @returns List of lambda resources
  */
 async function getLambdaFunctionList(context: $TSAny) {
   const { allResources } = await context.amplify.getResourceStatus();
-  const lambdaResources =
-    allResources && allResources.length > 0
-      ? allResources
-          ?.filter((resource: $TSAny) => resource.service === AmplifySupportedService.LAMBDA)
-          ?.map((resource: $TSAny) => resource.resourceName)
-      : [];
-  return lambdaResources ? lambdaResources : [];
+  const lambdaResources = allResources && allResources.length > 0
+    ? allResources
+      ?.filter((resource: $TSAny) => resource.service === AmplifySupportedService.LAMBDA)
+      ?.map((resource: $TSAny) => resource.resourceName)
+    : [];
+  return lambdaResources || [];
 }
+
+/**
+ *
+ */
 export const resourceAlreadyExists = () => {
   const amplifyMeta = stateManager.getMeta();
   let resourceName;
@@ -697,7 +707,7 @@ export function checkIfAuthExists() {
  * @returns IAM policy cloudformation
  */
 export function getIAMPolicies(resourceName: $TSAny, crudOptions: $TSAny) {
-  let policy = [];
+  const policy = [];
   let actions = new Set();
 
   crudOptions.forEach((crudOption: $TSAny) => {
@@ -744,7 +754,7 @@ export function getIAMPolicies(resourceName: $TSAny, crudOptions: $TSAny) {
     actions = (actions as $TSAny).filter((action: $TSAny) => action != 's3:ListBucket');
     policy.push(listBucketPolicy);
   }
-  let s3ObjectPolicy = {
+  const s3ObjectPolicy = {
     Effect: 'Allow',
     Action: actions,
     Resource: [

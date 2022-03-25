@@ -1,9 +1,19 @@
+/* eslint-disable @typescript-eslint/no-shadow */
+/* eslint-disable consistent-return */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable func-style */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { $TSContext } from 'amplify-cli-core';
 import { printer } from 'amplify-prompts';
 import * as path from 'path';
 import { categoryName } from '../constants';
-export { categoryName as name } from '../constants';
 
+export { categoryName as name } from '../constants';
+/**
+ * Entry point for storage category
+ * @param context - context object
+ * @returns
+ */
 export async function run(context: $TSContext) {
   if (/^win/.test(process.platform)) {
     try {

@@ -1,7 +1,25 @@
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable no-prototype-builtins */
+/* eslint-disable no-param-reassign */
+/* eslint-disable prefer-destructuring */
+/* eslint-disable import/no-dynamic-require */
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable global-require */
+/* eslint-disable default-case */
+/* eslint-disable max-depth */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable jsdoc/require-description */
+/* eslint-disable func-style */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as inquirer from 'inquirer';
-import { FeatureFlags, stateManager, executeHooks, HooksMeta, overriddenCategories } from 'amplify-cli-core';
+import {
+  FeatureFlags, stateManager, executeHooks, HooksMeta, overriddenCategories,
+} from 'amplify-cli-core';
 import { twoStringSetsAreEqual, twoStringSetsAreDisjoint } from './utils/set-ops';
 import { Context } from './domain/context';
 import { constants } from './domain/constants';
@@ -23,6 +41,9 @@ import {
 } from './domain/amplify-event';
 import { isHeadlessCommand, readHeadlessPayload } from './utils/headless-input-utils';
 
+/**
+ *
+ */
 export async function executeCommand(context: Context) {
   const pluginCandidates = getPluginsWithNameAndCommand(context.pluginPlatform, context.input.plugin!, context.input.command!);
 
@@ -30,10 +51,14 @@ export async function executeCommand(context: Context) {
     await executePluginModuleCommand(context, pluginCandidates[0]);
   } else if (pluginCandidates.length > 1) {
     const selectedPluginInfo = await selectPluginForExecution(context, pluginCandidates);
+    console.log('SACPCDEBUG: executeCommand : ', JSON.stringify(selectedPluginInfo, null, 2));
     await executePluginModuleCommand(context, selectedPluginInfo);
   }
 }
 
+/**
+ *
+ */
 export function isContainersEnabled(context) {
   const projectConfig = context.amplify.getProjectConfig();
   return projectConfig?.[projectConfig.frontend]?.config?.ServerlessContainers ?? false;
@@ -48,14 +73,10 @@ async function selectPluginForExecution(context: Context, pluginCandidates: Plug
   const commandAllowsSmartPick = !noSmartPickCommands.includes(context.input.command!);
 
   if (commandAllowsSmartPick) {
-    let candidatesAreAllCategoryPlugins = pluginCandidates.every((pluginInfo: PluginInfo) => {
-      return pluginInfo.manifest.type === 'category';
-    });
+    const candidatesAreAllCategoryPlugins = pluginCandidates.every((pluginInfo: PluginInfo) => pluginInfo.manifest.type === 'category');
 
     const pluginName = pluginCandidates[0].manifest.name;
-    let candidatesAllHaveTheSameName = pluginCandidates.every((pluginInfo: PluginInfo) => {
-      return pluginInfo.manifest.name === pluginName;
-    });
+    const candidatesAllHaveTheSameName = pluginCandidates.every((pluginInfo: PluginInfo) => pluginInfo.manifest.name === pluginName);
 
     if (candidatesAreAllCategoryPlugins && candidatesAllHaveTheSameName) {
       if (stateManager.metaFileExists()) {
@@ -65,10 +86,10 @@ async function selectPluginForExecution(context: Context, pluginCandidates: Plug
         const pluginWithMatchingServices: PluginInfo[] = [];
         const pluginWithDisjointServices: PluginInfo[] = [];
         const pluginWithoutServicesDeclared: PluginInfo[] = [];
-        //Use smart pick in two scenarios:
-        //1. if all the services under the category in metadata are in one and only one plugin candidate
-        //2. if no service in metadata is declared in any candidate's manifest, and only one candiate does not define the optional
-        //"services" field in its manifest, select the candiate, this is for the existing implementation of official plugins
+        // Use smart pick in two scenarios:
+        // 1. if all the services under the category in metadata are in one and only one plugin candidate
+        // 2. if no service in metadata is declared in any candidate's manifest, and only one candiate does not define the optional
+        // "services" field in its manifest, select the candiate, this is for the existing implementation of official plugins
         let i = 0;
         while (i < pluginCandidates.length) {
           if (pluginCandidates[i].manifest.services && pluginCandidates[i].manifest.services!.length > 0) {
@@ -83,7 +104,7 @@ async function selectPluginForExecution(context: Context, pluginCandidates: Plug
             pluginWithDisjointServices.push(pluginCandidates[i]);
             pluginWithoutServicesDeclared.push(pluginCandidates[i]);
           }
-          i++;
+          i += 1;
         }
 
         if (pluginWithMatchingServices.length === 1 && pluginWithDisjointServices.length === pluginCandidates.length - 1) {
@@ -98,9 +119,9 @@ async function selectPluginForExecution(context: Context, pluginCandidates: Plug
   }
 
   if (promptForSelection) {
-    //only use the manifest's displayName if there are no duplicates
+    // only use the manifest's displayName if there are no duplicates
     let noDuplicateDisplayNames = true;
-    let displayNameSet = new Set<string>();
+    const displayNameSet = new Set<string>();
     let i = 0;
     while (noDuplicateDisplayNames && i < pluginCandidates.length) {
       const { displayName } = pluginCandidates[i].manifest;
@@ -112,23 +133,19 @@ async function selectPluginForExecution(context: Context, pluginCandidates: Plug
           displayNameSet.add(displayName);
         }
       }
-      i++;
+      i += 1;
     }
 
-    //special handling for hosting plugins
-    const consoleHostingPlugins = pluginCandidates.filter(pluginInfo => {
-      return pluginInfo.packageName === 'amplify-console-hosting';
-    });
+    // special handling for hosting plugins
+    const consoleHostingPlugins = pluginCandidates.filter(pluginInfo => pluginInfo.packageName === 'amplify-console-hosting');
     if (consoleHostingPlugins.length > 0) {
-      const otherPlugins = pluginCandidates.filter(pluginInfo => {
-        return pluginInfo.packageName !== 'amplify-console-hosting';
-      });
-      //put console hosting plugin at the top
+      const otherPlugins = pluginCandidates.filter(pluginInfo => pluginInfo.packageName !== 'amplify-console-hosting');
+      // put console hosting plugin at the top
       pluginCandidates = consoleHostingPlugins.concat(otherPlugins);
     }
 
     const amplifyMeta = context.amplify.getProjectMeta();
-    const { Region } = amplifyMeta.providers['awscloudformation'];
+    const { Region } = amplifyMeta.providers.awscloudformation;
 
     if (!isContainersEnabled(context) || Region !== 'us-east-1') {
       // SSL Certificates only available to be created on us-east-1 only
@@ -140,7 +157,7 @@ async function selectPluginForExecution(context: Context, pluginCandidates: Plug
       name: 'section',
       message: 'Select the plugin module to execute',
       choices: pluginCandidates.map(plugin => {
-        let displayName = plugin.packageName + '@' + plugin.packageVersion;
+        let displayName = `${plugin.packageName}@${plugin.packageVersion}`;
         if (plugin.manifest.displayName && noDuplicateDisplayNames) {
           displayName = plugin.manifest.displayName;
         }
@@ -175,7 +192,7 @@ async function executePluginModuleCommand(context: Context, plugin: PluginInfo):
   const handler = await getHandler(plugin, context);
   attachContextExtensions(context, plugin);
   await raisePreEvent(context);
-  await handler();
+  await handler(); // SACPCTBD: Push depth = ${currentDepth}/${plugin}/${command}
   await raisePostEvent(context);
 }
 
@@ -192,12 +209,10 @@ const getHandler = async (pluginInfo: PluginInfo, context: any): Promise<() => P
   if (pluginModule.hasOwnProperty(commandName) && typeof pluginModule[commandName] === 'function') {
     if (commandName === constants.ExecuteAmplifyHeadlessCommand) {
       return async () => pluginModule[commandName](context, await readHeadlessPayload());
-    } else {
-      return () => pluginModule[commandName](context);
     }
-  } else {
-    return fallbackFn;
+    return () => pluginModule[commandName](context);
   }
+  return fallbackFn;
 };
 
 // old plugin execution approach of scanning the command folder and locating the command file
@@ -313,6 +328,9 @@ async function raisePostCodegenModelsEvent(context: Context) {
   await raiseEvent(context, new AmplifyEventArgs(AmplifyEvent.PostCodegenModels, new AmplifyPostCodegenModelsEventData()));
 }
 
+/**
+ *
+ */
 export async function raiseIntenralOnlyPostEnvRemoveEvent(context: Context, envName: string) {
   await raiseEvent(
     context,
@@ -320,10 +338,16 @@ export async function raiseIntenralOnlyPostEnvRemoveEvent(context: Context, envN
   );
 }
 
+/**
+ *
+ */
 export async function raisePostEnvAddEvent(context: Context, prevEnvName: string, newEnvName: string) {
   await raiseEvent(context, new AmplifyEventArgs(AmplifyEvent.PostEnvAdd, new AmplifyPostEnvAddEventData(prevEnvName, newEnvName)));
 }
 
+/**
+ *
+ */
 export async function raiseEvent(context: Context, args: AmplifyEventArgs) {
   const plugins = getPluginsWithEventHandler(context.pluginPlatform, args.event);
   if (plugins.length > 0) {

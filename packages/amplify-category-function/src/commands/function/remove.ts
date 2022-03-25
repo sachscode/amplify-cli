@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable jsdoc/require-description */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable max-len */
+/* eslint-disable consistent-return */
+import { $TSContext } from 'amplify-cli-core';
 import { categoryName } from '../../constants';
 import {
   FunctionSecretsStateManager,
@@ -8,40 +14,44 @@ import { isFunctionPushed } from '../../provider-utils/awscloudformation/utils/f
 import { removeLayerArtifacts } from '../../provider-utils/awscloudformation/utils/storeResources';
 import { removeResource } from '../../provider-utils/awscloudformation/service-walkthroughs/removeFunctionWalkthrough';
 import { removeWalkthrough } from '../../provider-utils/awscloudformation/service-walkthroughs/removeLayerWalkthrough';
-import { $TSContext } from 'amplify-cli-core';
 
 const subcommand = 'remove';
 
 module.exports = {
   name: subcommand,
+  /**
+   *
+   */
   run: async (context: $TSContext) => {
     const { amplify, parameters } = context;
 
     let resourceName = parameters.first;
     let resourceToBeDeleted = '';
 
-    const response = await removeResource(resourceName);
+    const removeResourceResponse = await removeResource(resourceName);
 
-    if (response.isLambdaLayer) {
+    if (removeResourceResponse.isLambdaLayer) {
       context.print.info(
         'When you delete a layer version, you can no longer configure functions to use it.\nHowever, any function that already uses the layer version continues to have access to it.',
       );
 
-      resourceToBeDeleted = await removeWalkthrough(context, response.resourceName);
-
+      // eslint-disable-next-line spellcheck/spell-checker
+      resourceToBeDeleted = await removeWalkthrough(context, removeResourceResponse.resourceName);
+      context.usageData.flow.pushOption({ removeResourceResponse, resourceToBeDeleted });
       if (!resourceToBeDeleted) {
         return;
       }
 
       resourceName = resourceToBeDeleted;
     } else {
-      resourceName = response.resourceName;
+      resourceName = removeResourceResponse.resourceName;
+      context.usageData.flow.pushOption({ removeResourceResponse });
     }
 
     let hasSecrets = false;
 
-    const resourceNameCallback = async (resourceName: string) => {
-      hasSecrets = getLocalFunctionSecretNames(resourceName).length > 0;
+    const resourceNameCallback = async (removedResourceName: string) => {
+      hasSecrets = getLocalFunctionSecretNames(removedResourceName).length > 0;
     };
 
     return amplify

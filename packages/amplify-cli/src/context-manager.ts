@@ -1,4 +1,10 @@
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable jsdoc/require-description */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable func-style */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
 import { stateManager } from 'amplify-cli-core';
+import * as _ from 'lodash';
 import { init } from './app-config';
 import { attachExtentions } from './context-extensions';
 import { NoUsageData, UsageData } from './domain/amplify-usageData';
@@ -6,14 +12,21 @@ import { ProjectSettings } from './domain/amplify-usageData/UsageDataPayload';
 import { Context } from './domain/context';
 import { Input } from './domain/input';
 import { PluginPlatform } from './domain/plugin-platform';
-import * as _ from 'lodash';
+import { getAmplifyVersion } from './extensions/amplify-helpers/get-amplify-version';
 
+/**
+ *
+ */
 export function constructContext(pluginPlatform: PluginPlatform, input: Input): Context {
   const context = new Context(pluginPlatform, input);
+  context.amplifyVersion = getAmplifyVersion();
   attachExtentions(context);
   return context;
 }
 
+/**
+ *
+ */
 export async function attachUsageData(context: Context) {
   const { AMPLIFY_CLI_ENABLE_USAGE_DATA } = process.env;
   const config = init(context);
@@ -30,19 +43,19 @@ export async function attachUsageData(context: Context) {
 }
 
 const getSafeAccountId = () => {
-  if(stateManager.metaFileExists()){
+  if (stateManager.metaFileExists()) {
     const amplifyMeta = stateManager.getMeta();
-    const stackId = _.get(amplifyMeta, ['providers','awscloudformation', 'StackId']) as string;
-    if(stackId) {
+    const stackId = _.get(amplifyMeta, ['providers', 'awscloudformation', 'StackId']) as string;
+    if (stackId) {
       const splitString = stackId.split(':');
-      if(splitString.length > 4) {
+      if (splitString.length > 4) {
         return splitString[4];
       }
     }
   }
 
   return '';
-}
+};
 
 const getVersion = (context: Context) => context.pluginPlatform.plugins.core[0].packageVersion;
 
@@ -50,7 +63,7 @@ const getProjectSettings = (): ProjectSettings => {
   const projectSettings: ProjectSettings = {};
   if (stateManager.projectConfigExists()) {
     const projectConfig = stateManager.getProjectConfig();
-    const frontend = projectConfig.frontend;
+    const { frontend } = projectConfig;
     projectSettings.frontend = frontend;
     projectSettings.framework = projectConfig?.[frontend]?.framework;
   }

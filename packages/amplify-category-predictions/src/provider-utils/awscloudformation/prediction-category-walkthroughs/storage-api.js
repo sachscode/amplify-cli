@@ -1,3 +1,7 @@
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable func-style */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 /**
  * wrapper functions to invoke functions exported by
  * storage category. (primarily s3 api used by predictions for identity)
@@ -6,6 +10,7 @@
 import * as uuid from 'uuid';
 
 /**
+ * Name of S3 resource or undefined
  * @returns Name of S3 resource or undefined
  */
 export async function invokeS3GetResourceName(context) {

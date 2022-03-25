@@ -1,3 +1,17 @@
+/* eslint-disable consistent-return */
+/* eslint-disable @typescript-eslint/no-shadow */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable array-callback-return */
+/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable no-prototype-builtins */
+/* eslint-disable no-restricted-syntax */
+/* eslint-disable no-param-reassign */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable jsdoc/require-description */
+/* eslint-disable func-style */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
 import {
   $TSAny,
   $TSContext,
@@ -17,7 +31,6 @@ import { isCI } from 'ci-info';
 import { EventEmitter } from 'events';
 import * as fs from 'fs-extra';
 import * as path from 'path';
-import { logInput } from './conditional-local-logging-init';
 import { print } from './context-extensions';
 import { attachUsageData, constructContext } from './context-manager';
 import { displayBannerMessages } from './display-banner-messages';
@@ -42,9 +55,10 @@ EventEmitter.defaultMaxListeners = 1000;
 // Change stacktrace limit to max value to capture more details if needed
 Error.stackTraceLimit = Number.MAX_SAFE_INTEGER;
 
-let errorHandler = (e: Error) => {};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let errorHandler = (_err: Error) => {};
 
-process.on('uncaughtException', function (error) {
+process.on('uncaughtException', error => {
   // Invoke the configured error handler if it is already configured
   if (errorHandler) {
     errorHandler(error);
@@ -63,42 +77,42 @@ process.on('uncaughtException', function (error) {
 });
 
 // In this handler we have to rethrow the error otherwise the process stucks there.
-process.on('unhandledRejection', function (error) {
+process.on('unhandledRejection', error => {
   throw error;
 });
 
 function convertKeysToLowerCase(obj: object) {
-  let newObj = {};
-  for (let key of Object.keys(obj)) {
+  const newObj = {};
+  for (const key of Object.keys(obj)) {
     newObj[key.toLowerCase()] = obj[key];
   }
   return newObj;
 }
 
 function normalizeStatusCommandOptions(input: Input) {
-  let options = input.options ? input.options : {};
+  const options = input.options ? input.options : {};
   const allowedVerboseIndicators = [constants.VERBOSE, 'v'];
-  //Normalize 'amplify status -v' to verbose, since -v is interpreted as 'version'
-  for (let verboseFlag of allowedVerboseIndicators) {
+  // Normalize 'amplify status -v' to verbose, since -v is interpreted as 'version'
+  for (const verboseFlag of allowedVerboseIndicators) {
     if (options.hasOwnProperty(verboseFlag)) {
       if (typeof options[verboseFlag] === 'string') {
         const pluginName = (options[verboseFlag] as string).toLowerCase();
         options[pluginName] = true;
       }
       delete options[verboseFlag];
-      options['verbose'] = true;
+      options.verbose = true;
     }
   }
-  //Merge plugins and subcommands as options (except help/verbose)
+  // Merge plugins and subcommands as options (except help/verbose)
   if (input.plugin) {
     options[input.plugin] = true;
     delete input.plugin;
   }
   if (input.subCommands) {
-    const allowedSubCommands = [constants.HELP, constants.VERBOSE]; //list of subcommands supported in Status
-    let inputSubCommands: string[] = [];
+    const allowedSubCommands = [constants.HELP, constants.VERBOSE]; // list of subcommands supported in Status
+    const inputSubCommands: string[] = [];
     input.subCommands.map(subCommand => {
-      //plugins are inferred as subcommands when positionally supplied
+      // plugins are inferred as subcommands when positionally supplied
       if (!allowedSubCommands.includes(subCommand)) {
         options[subCommand.toLowerCase()] = true;
       } else {
@@ -107,11 +121,14 @@ function normalizeStatusCommandOptions(input: Input) {
     });
     input.subCommands = inputSubCommands;
   }
-  input.options = convertKeysToLowerCase(options); //normalize keys to lower case
+  input.options = convertKeysToLowerCase(options); // normalize keys to lower case
   return input;
 }
 
 // entry from commandline
+/**
+ *
+ */
 export async function run() {
   try {
     deleteOldVersion();
@@ -125,8 +142,8 @@ export async function run() {
       notify({ defer: false, isGlobal: true });
     }
 
-    //Normalize status command options
-    if (input.command == 'status') {
+    // Normalize status command options
+    if (input.command === 'status') {
       input = normalizeStatusCommandOptions(input);
     }
 
@@ -158,9 +175,11 @@ export async function run() {
     }
 
     rewireDeprecatedCommands(input);
-    logInput(input);
+    // Initialize the Walkthrough tracker and register into the context
+    const amplifyVersion = getAmplifyVersion();
     const hooksMeta = HooksMeta.getInstance(input);
-    hooksMeta.setAmplifyVersion(getAmplifyVersion());
+    hooksMeta.setAmplifyVersion(amplifyVersion);
+
     const context = constructContext(pluginPlatform, input);
 
     // Initialize feature flags
@@ -202,7 +221,10 @@ export async function run() {
     // Display messages meant for most executions
     await displayBannerMessages(input);
 
-    await executeCommand(context);
+    /**
+     * This function loads the required plugins and submits the input parameters
+     */
+    await executeCommand(context); // SACPCTBD - push depth = /
 
     const exitCode = process.exitCode || 0;
 
@@ -230,7 +252,7 @@ export async function run() {
       if (jsonError.unknownFlags?.length > 0) {
         print.error('');
         print.error(
-          `These feature flags are defined in the "amplify/cli.json" configuration file and are unknown to the currently running Amplify CLI:`,
+          'These feature flags are defined in the "amplify/cli.json" configuration file and are unknown to the currently running Amplify CLI:',
         );
 
         for (const unknownFlag of jsonError.unknownFlags) {
@@ -242,7 +264,7 @@ export async function run() {
 
       if (jsonError.otherErrors?.length > 0) {
         print.error('');
-        print.error(`The following feature flags have validation errors:`);
+        print.error('The following feature flags have validation errors:');
 
         for (const otherError of jsonError.otherErrors) {
           print.error(`  - ${otherError}`);
@@ -254,16 +276,16 @@ export async function run() {
       if (printSummary) {
         print.error('');
         print.error(
-          `This issue likely happens when the project has been pushed with a newer version of Amplify CLI, try updating to a newer version.`,
+          'This issue likely happens when the project has been pushed with a newer version of Amplify CLI, try updating to a newer version.',
         );
 
         if (isCI) {
           print.error('');
-          print.error(`Ensure that the CI/CD pipeline is not using an older or pinned down version of Amplify CLI.`);
+          print.error('Ensure that the CI/CD pipeline is not using an older or pinned down version of Amplify CLI.');
         }
 
         print.error('');
-        print.error(`Learn more about feature flags: https://docs.amplify.aws/cli/reference/feature-flags`);
+        print.error('Learn more about feature flags: https://docs.amplify.aws/cli/reference/feature-flags');
       }
     } else {
       if (error.message) {
@@ -294,7 +316,7 @@ function boundErrorHandler(this: Context, e: Error) {
   this.usageData.emitError(e);
 }
 
-async function sigIntHandler(this: Context, e: $TSAny) {
+async function sigIntHandler(this: Context, _e: $TSAny) {
   this.usageData.emitAbort();
 
   try {
@@ -308,8 +330,11 @@ async function sigIntHandler(this: Context, e: $TSAny) {
 }
 
 // entry from library call
+/**
+ *
+ */
 export async function execute(input: Input): Promise<number> {
-  let errorHandler = (e: Error) => {};
+  let errorHandler = (_e: Error) => {};
   try {
     let pluginPlatform = await getPluginPlatform();
     let verificationResult = verifyInput(pluginPlatform, input);
@@ -365,6 +390,9 @@ export async function execute(input: Input): Promise<number> {
   }
 }
 
+/**
+ *
+ */
 export async function executeAmplifyCommand(context: Context) {
   if (context.input.command) {
     const commandPath = path.normalize(path.join(__dirname, 'commands', context.input.command));

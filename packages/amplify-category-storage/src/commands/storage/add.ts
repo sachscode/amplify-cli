@@ -1,3 +1,7 @@
+/* eslint-disable consistent-return */
+/* eslint-disable prefer-arrow/prefer-arrow-functions */
+/* eslint-disable func-style */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { $TSContext } from 'amplify-cli-core';
 import { printer } from 'amplify-prompts';
 import { categoryName } from '../../constants';
@@ -5,7 +9,11 @@ import { categoryName } from '../../constants';
 export const name = 'add'; // subcommand
 
 let options;
-
+/**
+ * Storage Add function
+ * @param context
+ * @returns
+ */
 export async function run(context: $TSContext) {
   const { amplify } = context;
   const serviceMetadata = (await import('../../provider-utils/supported-services')).supportedServices;
@@ -23,7 +31,6 @@ export async function run(context: $TSContext) {
         printer.error('Provider not configured for this category');
         return;
       }
-
       return providerController.addResource(context, categoryName, result.service, options);
     })
     .then(resourceName => {
