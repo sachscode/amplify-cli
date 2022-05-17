@@ -38,6 +38,10 @@
     },
     "env": {
       "Type": "String"
+    },
+    "pinpointInAppMsgPolicyName": {
+      "Type": "String",
+      "Default": "NONE"
     }
   },
   "Metadata": {
@@ -47,7 +51,9 @@
           "Label": {
             "default": "Creating pinpoint app"
           },
-          "Parameters": ["appName"]
+          "Parameters": [
+            "appName"
+          ]
         }
       ]
     }
@@ -65,6 +71,14 @@
       "Fn::Equals": [
         {
           "Ref": "env"
+        },
+        "NONE"
+      ]
+    },
+    "ShouldEnablePinpointInAppMessaging": {
+      "Fn::Equals": [
+        {
+          "Ref": "pinpointInAppMsgPolicyName"
         },
         "NONE"
       ]
@@ -103,9 +117,13 @@
             {
               "Effect": "Allow",
               "Principal": {
-                "Service": ["lambda.amazonaws.com"]
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
               },
-              "Action": ["sts:AssumeRole"]
+              "Action": [
+                "sts:AssumeRole"
+              ]
             }
           ]
         },
@@ -119,7 +137,11 @@
               "Statement": [
                 {
                   "Effect": "Allow",
-                  "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
                   "Resource": "arn:aws:logs:*:*:*"
                 }
               ]
@@ -134,7 +156,10 @@
               "Statement": [
                 {
                   "Effect": "Allow",
-                  "Action": ["mobileanalytics:*", "mobiletargeting:*"],
+                  "Action": [
+                    "mobileanalytics:*",
+                    "mobiletargeting:*"
+                  ],
                   "Resource": "*"
                 }
               ]
@@ -149,7 +174,9 @@
               "Statement": [
                 {
                   "Effect": "Allow",
-                  "Action": ["cloudformation:*"],
+                  "Action": [
+                    "cloudformation:*"
+                  ],
                   "Resource": "*"
                 }
               ]
@@ -236,7 +263,10 @@
         "Runtime": "nodejs14.x",
         "Timeout": 300,
         "Role": {
-          "Fn::GetAtt": ["LambdaExecutionRole", "Arn"]
+          "Fn::GetAtt": [
+            "LambdaExecutionRole",
+            "Arn"
+          ]
         }
       }
     },
@@ -245,13 +275,22 @@
       "Condition": "ShouldCreatePinpointApp",
       "Properties": {
         "ServiceToken": {
-          "Fn::GetAtt": ["PinpointFunction", "Arn"]
+          "Fn::GetAtt": [
+            "PinpointFunction",
+            "Arn"
+          ]
         },
         "region": {
           "Ref": "AWS::Region"
         },
         "pingPointRegion": {
-          "Fn::FindInMap": ["RegionMapping", { "Ref": "AWS::Region" }, "pinpointRegion"]
+          "Fn::FindInMap": [
+            "RegionMapping",
+            {
+              "Ref": "AWS::Region"
+            },
+            "pinpointRegion"
+          ]
         },
         "appName": {
           "Fn::If": [
@@ -281,14 +320,23 @@
     "CognitoUnauthPolicy": {
       "Type": "AWS::IAM::Policy",
       "Properties": {
-        "PolicyName": { "Ref": "unauthPolicyName" },
-        "Roles": [{ "Ref": "unauthRoleName" }],
+        "PolicyName": {
+          "Ref": "unauthPolicyName"
+        },
+        "Roles": [
+          {
+            "Ref": "unauthRoleName"
+          }
+        ],
         "PolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
             {
               "Effect": "Allow",
-              "Action": ["mobiletargeting:PutEvents", "mobiletargeting:UpdateEndpoint"],
+              "Action": [
+                "mobiletargeting:PutEvents",
+                "mobiletargeting:UpdateEndpoint"
+              ],
               "Resource": [
                 {
                   "Fn::If": [
@@ -298,10 +346,25 @@
                         "",
                         [
                           "arn:aws:mobiletargeting:*:",
-                          { "Fn::Select": ["4", { "Fn::Split": [":", { "Ref": "authRoleArn" }] }] },
+                          {
+                            "Fn::Select": [
+                              "4",
+                              {
+                                "Fn::Split": [
+                                  ":",
+                                  {
+                                    "Ref": "authRoleArn"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
                           ":apps/",
                           {
-                            "Fn::GetAtt": ["PinpointFunctionOutputs", "Id"]
+                            "Fn::GetAtt": [
+                              "PinpointFunctionOutputs",
+                              "Id"
+                            ]
                           },
                           "*"
                         ]
@@ -312,7 +375,19 @@
                         "",
                         [
                           "arn:aws:mobiletargeting:*:",
-                          { "Fn::Select": ["4", { "Fn::Split": [":", { "Ref": "authRoleArn" }] }] },
+                          {
+                            "Fn::Select": [
+                              "4",
+                              {
+                                "Fn::Split": [
+                                  ":",
+                                  {
+                                    "Ref": "authRoleArn"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
                           ":apps/",
                           {
                             "Ref": "appId"
@@ -332,14 +407,23 @@
     "CognitoAuthPolicy": {
       "Type": "AWS::IAM::Policy",
       "Properties": {
-        "PolicyName": { "Ref": "authPolicyName" },
-        "Roles": [{ "Ref": "authRoleName" }],
+        "PolicyName": {
+          "Ref": "authPolicyName"
+        },
+        "Roles": [
+          {
+            "Ref": "authRoleName"
+          }
+        ],
         "PolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
             {
               "Effect": "Allow",
-              "Action": ["mobiletargeting:PutEvents", "mobiletargeting:UpdateEndpoint"],
+              "Action": [
+                "mobiletargeting:PutEvents",
+                "mobiletargeting:UpdateEndpoint"
+              ],
               "Resource": [
                 {
                   "Fn::If": [
@@ -349,10 +433,25 @@
                         "",
                         [
                           "arn:aws:mobiletargeting:*:",
-                          { "Fn::Select": ["4", { "Fn::Split": [":", { "Ref": "authRoleArn" }] }] },
+                          {
+                            "Fn::Select": [
+                              "4",
+                              {
+                                "Fn::Split": [
+                                  ":",
+                                  {
+                                    "Ref": "authRoleArn"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
                           ":apps/",
                           {
-                            "Fn::GetAtt": ["PinpointFunctionOutputs", "Id"]
+                            "Fn::GetAtt": [
+                              "PinpointFunctionOutputs",
+                              "Id"
+                            ]
                           },
                           "*"
                         ]
@@ -363,7 +462,110 @@
                         "",
                         [
                           "arn:aws:mobiletargeting:*:",
-                          { "Fn::Select": ["4", { "Fn::Split": [":", { "Ref": "authRoleArn" }] }] },
+                          {
+                            "Fn::Select": [
+                              "4",
+                              {
+                                "Fn::Split": [
+                                  ":",
+                                  {
+                                    "Ref": "authRoleArn"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          ":apps/",
+                          {
+                            "Ref": "appId"
+                          },
+                          "*"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "PinpointInAppMessagingPolicy": {
+      "Condition": "ShouldEnablePinpointInAppMessaging",
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": {
+          "Ref": "pinpointInAppMsgPolicyName"
+        },
+        "Roles": [
+          {
+            "Ref": "unauthRoleName"
+          },
+          {
+            "Ref": "authRoleName"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AmplifyCLIInAppMessaging0",
+              "Effect": "Allow",
+              "Action": [
+                "mobiletargeting:GetInAppMessages"
+              ],
+              "Resource": [
+                {
+                  "Fn::If": [
+                    "ShouldCreatePinpointApp",
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:mobiletargeting:*:",
+                          {
+                            "Fn::Select": [
+                              "4",
+                              {
+                                "Fn::Split": [
+                                  ":",
+                                  {
+                                    "Ref": "authRoleArn"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          ":apps/",
+                          {
+                            "Fn::GetAtt": [
+                              "PinpointFunctionOutputs",
+                              "Id"
+                            ]
+                          },
+                          "*"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:mobiletargeting:*:",
+                          {
+                            "Fn::Select": [
+                              "4",
+                              {
+                                "Fn::Split": [
+                                  ":",
+                                  {
+                                    "Ref": "authRoleArn"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
                           ":apps/",
                           {
                             "Ref": "appId"
@@ -384,7 +586,13 @@
   "Outputs": {
     "Region": {
       "Value": {
-        "Fn::FindInMap": ["RegionMapping", { "Ref": "AWS::Region" }, "pinpointRegion"]
+        "Fn::FindInMap": [
+          "RegionMapping",
+          {
+            "Ref": "AWS::Region"
+          },
+          "pinpointRegion"
+        ]
       }
     },
     "Id": {
@@ -392,7 +600,10 @@
         "Fn::If": [
           "ShouldCreatePinpointApp",
           {
-            "Fn::GetAtt": ["PinpointFunctionOutputs", "Id"]
+            "Fn::GetAtt": [
+              "PinpointFunctionOutputs",
+              "Id"
+            ]
           },
           {
             "Ref": "appId"
@@ -405,7 +616,10 @@
         "Fn::If": [
           "ShouldCreatePinpointApp",
           {
-            "Fn::GetAtt": ["PinpointFunctionOutputs", "Name"]
+            "Fn::GetAtt": [
+              "PinpointFunctionOutputs",
+              "Name"
+            ]
           },
           {
             "Ref": "appName"
