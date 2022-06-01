@@ -339,7 +339,7 @@ interface AmplifyToolkit {
     filteredResources?: { category: string; resourceName: string }[],
     rebuild?: boolean,
   ) => $TSAny;
-  storeCurrentCloudBackend: () => $TSAny;
+  storeCurrentCloudBackend: (context:$TSContext) => $TSAny;
 
   /**
    * use stateManager or JSONUtilities from amplify-cli-core
