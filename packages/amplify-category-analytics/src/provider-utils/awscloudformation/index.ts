@@ -23,6 +23,22 @@ export const addResource = (context : $TSContext, _: string, service: string): $
 };
 
 /**
+ * Import and Analytics resource walkthrough
+ * @param {*} context - CLI context
+ * @param {*} _ - Analytics
+ * @param {*} service - Pinpoint/Kinesis
+ * @returns resourceName
+ */
+export const importResource = async (context : $TSContext, _: string, service: string): Promise<$TSAny> => {
+  const serviceMetadata = context.amplify.readJsonFile(`${__dirname}/../supported-services.json`)[service];
+  const { defaultValuesFilename, serviceWalkthroughFilename } = serviceMetadata;
+  const serviceWalkthroughSrc = `${__dirname}/service-walkthroughs/${serviceWalkthroughFilename}`;
+  const { importWalkthrough } = await import(serviceWalkthroughSrc);
+  const response = await importWalkthrough(context, defaultValuesFilename, serviceMetadata);
+  return response;
+};
+
+/**
  * Update Analytics Resource
  * @param context Amplify CLI context
  * @param _  should be one of kinesis or pinpoint
@@ -68,4 +84,6 @@ $TSAny|undefined => {
   return getIAMPolicies(resourceName, crudOptions);
 };
 
-module.exports = { addResource, getPermissionPolicies, updateResource };
+module.exports = {
+  addResource, getPermissionPolicies, updateResource, importResource,
+};

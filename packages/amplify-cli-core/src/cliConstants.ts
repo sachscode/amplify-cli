@@ -2,6 +2,14 @@ import { $TSAny } from '.';
 
 /* eslint-disable spellcheck/spell-checker */
 export const SecretFileMode = 0o600; // file permissions for -rw-------
+
+/**
+ * Infrastructure provider plugin names
+ */
+export enum AmplifyProviderPlugin {
+  AWSCLOUDFORMATION = 'awscloudformation',
+}
+
 export const CLISubCommands = {
   ADD: 'add',
   PUSH: 'push',

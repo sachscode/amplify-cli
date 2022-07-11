@@ -3,14 +3,16 @@
     "type": "category",
     "commands": [
         "add",
+        "import",
         "remove",
         "push",
         "update",
         "console",
         "help"
     ],
-    "commandAliases":{
-        "configure": "update"
+    "commandAliases": {
+        "configure": "update",
+        "ls": "status"
     },
     "eventHandlers": []
 }

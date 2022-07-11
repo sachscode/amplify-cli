@@ -28,6 +28,10 @@ export const analyticsRun = async (context:$TSContext): Promise<$TSAny> => {
       description: `Takes you through a CLI flow to add an ${featureName} resource to your local backend`,
     },
     {
+      name: 'import',
+      description: `Takes you through a CLI flow to import an existing ${featureName} resource to your local backend`,
+    },
+    {
       name: 'update',
       description: `Takes you through steps in the CLI to update an ${featureName} resource`,
     },

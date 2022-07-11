@@ -7,9 +7,14 @@ import * as inquirer from 'inquirer';
 import * as path from 'path';
 import * as fs from 'fs-extra';
 import * as os from 'os';
+import { v4 as uuid } from 'uuid';
 import {
-  ResourceAlreadyExistsError, exitOnNextTick, AmplifyCategories, AmplifySupportedService, $TSContext, $TSAny,
+  ResourceAlreadyExistsError, exitOnNextTick, AmplifyCategories, AmplifySupportedService, $TSContext, $TSAny, ResourceDoesNotExistError, AmplifyProviderPlugin, pathManager, stateManager,
 } from 'amplify-cli-core';
+import { prompter, printer } from 'amplify-prompts';
+import { AnalyticsPinpointProviderParams } from './pinpoint-provider-params';
+import { AnalyticsConfig } from './analytics-config';
+import { AnalyticsPinpoint } from './pinpoint-state';
 
 const providerName = 'awscloudformation';
 // FIXME: may be removed from here, since addResource can pass category to addWalkthrough
@@ -39,6 +44,43 @@ const addWalkthrough = async (context : $TSContext, defaultValuesFilename: strin
   return undefined;
 };
 
+/**
+ * Utility function to get the resource folder path given the category and resource name
+ * @param category
+ * @param resourceName
+ * @returns
+ */
+const getBackendResourcePath = (category: string, resourceName: string) => {
+  const projectBackendDirPath = pathManager.getBackendDirPath();
+  const resourceDirPath = path.join(projectBackendDirPath, category, resourceName);
+  return resourceDirPath;
+};
+
+/**
+ * Utility function to save the analytics backend configuration to the backend config file
+ */
+const updateBackendConfig = async (updatedBackendCfg: Record<string, $TSAny>) => {
+  const backendConfigFilePath = pathManager.getBackendConfigFilePath();
+  const localBackendCfg = await stateManager.getBackendConfig(backendConfigFilePath);
+  const mergedBackendCfg = { ...localBackendCfg, ...updatedBackendCfg };
+  stateManager.setBackendConfig(backendConfigFilePath, mergedBackendCfg);
+  return mergedBackendCfg;
+};
+
+/**
+ * Utility function to generate new cloudformation template file from input parameters
+ * @param context amplify cli context
+ * @param resourceName amplify resource name (same as pinpoint project nam)
+ * @param updatedCFNParams parameters.json
+ */
+const updateCFNParams = async (context : $TSContext, resourceName: string, updatedCFNParams: Record<string, $TSAny>) => {
+  const resourceDirPath = getBackendResourcePath(category, resourceName);
+  const currentCFNParams = readParams(resourceDirPath);
+  const mergedCFNParams = { ...currentCFNParams, ...updatedCFNParams };
+  writeParams(resourceDirPath, mergedCFNParams);
+  writeCfnFile(context, resourceDirPath);
+};
+
 const configure = (context : $TSContext, defaultValuesFilename: string, serviceMetadata: $TSAny,
   resourceName: string|undefined): $TSAny => {
   const { amplify } = context;
@@ -59,6 +101,10 @@ const configure = (context : $TSContext, defaultValuesFilename: string, serviceM
     Object.assign(defaultValues, parameters);
   }
 
+  // Note! We need to make the following explicit using a state tag.
+  // This step is to re-use the notification's Pinpoint resource in Analytics.
+  // This is only required if customer has only created the notifications flow in legacy and is creating
+  // the Analytics flow in current way.
   const pinpointApp = checkIfNotificationsCategoryExists(context);
 
   if (pinpointApp) {
@@ -240,7 +286,7 @@ const getTemplateMappings = (context:$TSContext):Record<string, $TSAny> => {
  * @param {*} resourceDirPath Path to params.json
  * @param {*} values values to be written to params.json
  */
-export const writeParams = (resourceDirPath: string, values: Array<$TSAny>): void => {
+export const writeParams = (resourceDirPath: string, values: Record<string, $TSAny>): void => {
   fs.ensureDirSync(resourceDirPath);
   const parametersFilePath = path.join(resourceDirPath, parametersFileName);
   const jsonString = JSON.stringify(values, null, 4);
@@ -482,4 +528,60 @@ const getIAMPolicies = (resourceName: string, crudOptions: $TSAny): $TSAny => {
   return { policy, attributes };
 };
 
-module.exports = { addWalkthrough, migrate, getIAMPolicies };
+class AnalyticsMeta {
+    service: AmplifySupportedService; 
+    providerPlugin: AmplifyProvider;
+    providerMetadata : ;
+    outputAppName : string;
+    outputRegion: string;
+    outputId: string;
+    constructor( projectName, region, projectId){
+
+    }
+
+  
+
+}
+
+/**
+ * Import resource walkthough for Pinpoint/Kinesis resource.
+ * @param context amplify cli context
+ * @param defaultValuesFilename default values for given walkthrough
+ * @param serviceMetadata service related metadata from amplify-meta.json
+ * @returns resource
+ */
+export const importWalkthrough = async (context : $TSContext, defaultValuesFilename: string, serviceMetadata: $TSAny): Promise<$TSAny> => {
+  const resourceName: string|undefined = resourceAlreadyExists(context);
+  if (resourceName) {
+    // ask if user wants to import a new resource
+    const errMessage = 'Pinpoint analytics have already been added to your project.';
+    context.print.warning(errMessage);
+    await context.usageData.emitError(new ResourceAlreadyExistsError(errMessage));
+    exitOnNextTick(0);
+    return undefined;
+  }
+  AnalyticsPinpoint.setContext(context); // set the context to apply the Analytics configs
+  context.exeInfo = (context.exeInfo) || context.amplify.getProjectDetails();
+
+  // Ask for the Pinpoint project Name
+  const projectName : string = await viewAskForPinpointProjectName(context);
+  // Ask for the Pinpoint region
+  const region : string = await viewAskForPinpointRegion(context, projectName);
+  // Ask for the Pinpoint ID
+  try {
+    const projectId = await AnalyticsPinpoint.sdk.getPinpointAppId(context, projectName, region);
+    // create the resource config
+    await AnalyticsPinpoint.saveBackendCfgImportPinpoint(projectName);
+    await AnalyticsPinpoint.saveCFNParamsImportPinpoint(projectName, region, projectId);
+    await AnalyticsPinpoint.saveAmplifyMetaImportPinpoint(projectName, region, projectId);
+  } catch (err) {
+    const errMessage = `Pinpoint project does not exist with project name: ${projectName} in region: ${region}`;
+    await context.usageData.emitError(new ResourceDoesNotExistError(errMessage));
+    exitOnNextTick(0);
+  }
+  return undefined;
+};
+
+module.exports = {
+  addWalkthrough, importWalkthrough, migrate, getIAMPolicies,
+};
